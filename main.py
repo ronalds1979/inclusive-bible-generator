@@ -13,7 +13,7 @@ class App(ctk.CTk):
         self.generator = Generator()
         self.current_lang = "Português (Brasil)"
 
-        self.title("Luz Inclusiva")
+        self.title("inclusive-bible-generator")
         self.geometry("800x600")
 
         self.grid_columnconfigure(0, weight=1)

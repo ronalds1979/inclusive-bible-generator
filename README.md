@@ -1,4 +1,4 @@
-# Luz Inclusiva (Inclusive Light)
+# inclusive-bible-generator
 
 Um aplicativo desktop para Windows que gera imagens acessíveis de versículos bíblicos para redes sociais, com suporte a múltiplos idiomas (Português, Inglês e Espanhol).
 
