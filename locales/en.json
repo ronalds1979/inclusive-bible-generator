@@ -1,0 +1,19 @@
+{
+  "title": "Inclusive Light",
+  "verse_label": "Bible Verse",
+  "reference_label": "Reference (e.g., Psalm 119:105)",
+  "language_label": "Language",
+  "background_label": "Background Image",
+  "generate_btn": "Generate Content",
+  "alt_text_label": "Alternative Text (Alt-Text)",
+  "caption_label": "Social Media Caption",
+  "copy_alt_text_btn": "Copy Alt-Text",
+  "copy_caption_btn": "Copy Caption",
+  "save_btn": "Save Image",
+  "default_description": "Background with neutral image.",
+  "alt_text_template": "[Image Description]: {description} [Highlighted Text]: \"{verse}\" - {reference}.",
+  "caption_template": "📖 {reference}\n\n\"{verse}\"\n\n🎥 Accessibility note for video: ASL interpretation available.\n\n#Accessibility #Inclusion #BibleVerses #ASL",
+  "success_msg": "Successfully generated!",
+  "copy_success_msg": "Copied to clipboard!",
+  "save_success_msg": "Image saved to {path}"
+}

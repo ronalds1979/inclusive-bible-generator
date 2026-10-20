@@ -1,0 +1,19 @@
+{
+  "title": "Luz Inclusiva",
+  "verse_label": "Versículo Bíblico",
+  "reference_label": "Referencia (ej: Salmos 119:105)",
+  "language_label": "Idioma",
+  "background_label": "Imagen de Fondo",
+  "generate_btn": "Generar Contenido",
+  "alt_text_label": "Texto Alternativo (Alt-Text)",
+  "caption_label": "Leyenda (Redes Sociales)",
+  "copy_alt_text_btn": "Copiar Alt-Text",
+  "copy_caption_btn": "Copiar Leyenda",
+  "save_btn": "Guardar Imagen",
+  "default_description": "Fondo con imagen neutra.",
+  "alt_text_template": "[Descripción de la imagen]: {description} [Texto destacado]: \"{verse}\" - {reference}.",
+  "caption_template": "📖 {reference}\n\n\"{verse}\"\n\n🎥 Accesibilidad para video: Interpretación en LSE disponible.\n\n#Accesibilidad #Inclusion #PalabraDeDios #LenguaDeSignos",
+  "success_msg": "¡Generado con éxito!",
+  "copy_success_msg": "¡Copiado al portapapeles!",
+  "save_success_msg": "Imagen guardada en {path}"
+}
