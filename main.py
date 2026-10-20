@@ -140,17 +140,37 @@ class App(ctk.CTk):
         self.y_offset_slider = ctk.CTkSlider(self.bottom_config_frame, from_=-400, to=400, variable=self.y_offset_var, command=self.trigger_preview)
         self.y_offset_slider.grid(row=1, column=1, padx=5, sticky="ew")
 
+        # Audio Configuration block
+        self.audio_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
+        self.audio_config_frame.grid(row=10, column=0, columnspan=2, pady=(0, 20), sticky="ew")
+        self.audio_config_frame.grid_columnconfigure((0, 1), weight=1)
+
+        self.audio_generate_var = ctk.BooleanVar(value=False)
+        self.audio_generate_checkbox = ctk.CTkCheckBox(self.audio_config_frame, text="Gerar Áudio (TTS)?", variable=self.audio_generate_var)
+        self.audio_generate_checkbox.grid(row=0, column=0, pady=(0, 5), padx=(0, 5), sticky="w")
+
+        self.gender_label = ctk.CTkLabel(self.audio_config_frame, text="Voz:")
+        self.gender_label.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="w")
+
+        self.gender_var = ctk.StringVar(value="Female")
+        self.gender_dropdown = ctk.CTkOptionMenu(
+            self.audio_config_frame,
+            values=["Female", "Male"],
+            variable=self.gender_var
+        )
+        self.gender_dropdown.grid(row=1, column=1, padx=(5, 0), sticky="ew")
+
         # Bind text inputs to preview
         self.verse_input.bind("<KeyRelease>", self.trigger_preview)
         self.reference_input.bind("<KeyRelease>", self.trigger_preview)
 
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
-        self.output_textbox.grid(row=10, column=0, columnspan=2, pady=10, sticky="ew")
+        self.output_textbox.grid(row=11, column=0, columnspan=2, pady=10, sticky="ew")
 
         # Copy/Save Buttons Frame
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.buttons_frame.grid(row=11, column=0, columnspan=2, pady=10)
+        self.buttons_frame.grid(row=12, column=0, columnspan=2, pady=10)
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt)
         self.copy_alt_btn.grid(row=0, column=0, padx=10)
@@ -162,7 +182,7 @@ class App(ctk.CTk):
         self.save_btn.grid(row=0, column=2, padx=10)
 
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
-        self.status_label.grid(row=12, column=0, columnspan=2, pady=10)
+        self.status_label.grid(row=13, column=0, columnspan=2, pady=10)
 
         self.alt_text = ""
         self.caption = ""
@@ -220,6 +240,20 @@ class App(ctk.CTk):
         self.font_size_label.configure(text=self.generator.get_locale_string(lang, "font_size_label"))
         self.y_offset_label.configure(text=self.generator.get_locale_string(lang, "y_offset_label"))
 
+        self.audio_generate_checkbox.configure(text=self.generator.get_locale_string(lang, "audio_label"))
+        self.gender_label.configure(text=self.generator.get_locale_string(lang, "gender_label"))
+
+        self.gender_dropdown.configure(values=[
+            self.generator.get_locale_string(lang, "gender_female"),
+            self.generator.get_locale_string(lang, "gender_male")
+        ])
+
+        current_gender = self.gender_var.get()
+        if "Female" in current_gender or "Feminina" in current_gender or "Femenina" in current_gender:
+            self.gender_var.set(self.generator.get_locale_string(lang, "gender_female"))
+        else:
+            self.gender_var.set(self.generator.get_locale_string(lang, "gender_male"))
+
         self.copy_alt_btn.configure(text=self.generator.get_locale_string(lang, "copy_alt_text_btn"))
         self.copy_caption_btn.configure(text=self.generator.get_locale_string(lang, "copy_caption_btn"))
         self.save_btn.configure(text=self.generator.get_locale_string(lang, "save_btn"))
@@ -228,7 +262,7 @@ class App(ctk.CTk):
     def trigger_preview(self, *args):
         if hasattr(self, '_preview_after_id'):
             self.after_cancel(self._preview_after_id)
-        self._preview_after_id = self.after(500, self.generate_content)
+        self._preview_after_id = self.after(500, self.preview_content)
 
     def clear_custom_image(self, _choice):
         self.custom_image_path = None
@@ -244,7 +278,7 @@ class App(ctk.CTk):
             self.bg_var.set(os.path.basename(file_path))
             self.trigger_preview()
 
-    def generate_content(self):
+    def get_current_params(self):
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
         background = self.bg_var.get()
@@ -253,7 +287,6 @@ class App(ctk.CTk):
         font_size = self.font_size_var.get()
         y_offset = self.y_offset_var.get()
 
-        # Determine raw ratio from selection
         ratio_selection = self.aspect_ratio_var.get()
         if "3:4" in ratio_selection:
             aspect_ratio = "3:4"
@@ -262,58 +295,88 @@ class App(ctk.CTk):
         else:
             aspect_ratio = "1:1"
 
+        return verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio
+
+    def preview_content(self):
+        verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio = self.get_current_params()
         if not verse or not reference:
             return
 
-        lang = self.get_lang_key()
-
-        # 1. Generate Image
-        img_path = self.generator.generate_image(
-            self.current_lang,
-            verse,
-            reference,
-            background_filename=background,
-            custom_image_path=self.custom_image_path,
-            aspect_ratio=aspect_ratio,
-            font_type=font_type,
-            font_color=font_color,
-            font_size=font_size,
-            y_offset=y_offset
-        )
-        self.last_generated_image_path = img_path
-
-        # 2 & 3. Generate Texts
-        self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
-
-        # Display Texts
-        self.output_textbox.delete("1.0", "end")
-
-        alt_label = self.generator.get_locale_string(lang, "alt_text_label")
-        cap_label = self.generator.get_locale_string(lang, "caption_label")
-
-        display_text = f"--- {alt_label} ---\n{self.alt_text}\n\n--- {cap_label} ---\n{self.caption}"
-        self.output_textbox.insert("1.0", display_text)
-
-        msg = self.generator.get_locale_string(lang, "success_msg")
-        self.status_label.configure(text=msg)
-
-        self.update_preview(img_path)
-
-    def update_preview(self, img_path):
-        from PIL import Image
         try:
-            pil_img = Image.open(img_path)
+            pil_img = self.generator.generate_image(
+                self.current_lang, verse, reference, background_filename=background,
+                custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
+                font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+            )
 
-            # Calculate preview size (max 500x500 to fit on screen)
             preview_max_size = (500, 500)
+            from PIL import Image
             pil_img.thumbnail(preview_max_size, Image.Resampling.LANCZOS)
 
             ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
             self.preview_label.configure(image=ctk_img, text="")
-            # Keep a reference so it's not garbage collected
             self.preview_label.image = ctk_img
         except Exception as e:
-            self.preview_label.configure(image="", text=f"Error loading preview:\n{str(e)}")
+            self.preview_label.configure(image="", text=f"Error rendering preview:\n{str(e)}")
+
+    def generate_content(self):
+        verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio = self.get_current_params()
+        if not verse or not reference:
+            return
+
+        lang = self.get_lang_key()
+        lang_code = "pt"
+        if "en" in lang: lang_code = "en"
+        elif "es" in lang: lang_code = "es"
+
+        self.status_label.configure(text="Gerando arquivos...")
+        self.update()
+
+        import threading
+
+        def _process():
+            # Generate Image to Disk
+            pil_img = self.generator.generate_image(
+                self.current_lang, verse, reference, background_filename=background,
+                custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
+                font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+            )
+
+            safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+            filename = f"{safe_ref}_{lang_code}.png"
+            output_path = os.path.join(self.generator.output_dir, filename)
+            pil_img.save(output_path, "PNG")
+            self.last_generated_image_path = output_path
+
+            # Generate Texts
+            self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
+
+            # Generate Audio
+            audio_msg = ""
+            if self.audio_generate_var.get():
+                gender_selection = self.gender_var.get()
+                gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
+                try:
+                    audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key)
+                    audio_msg = f"\nÁudio salvo em: {os.path.basename(audio_path)}"
+                except Exception as e:
+                    audio_msg = f"\nErro ao gerar áudio: {e}"
+
+            self.after(0, self._on_generate_complete, lang, audio_msg)
+
+        threading.Thread(target=_process, daemon=True).start()
+
+    def _on_generate_complete(self, lang, audio_msg):
+        # Update Textbox
+        self.output_textbox.delete("1.0", "end")
+        alt_label = self.generator.get_locale_string(lang, "alt_text_label")
+        cap_label = self.generator.get_locale_string(lang, "caption_label")
+        display_text = f"--- {alt_label} ---\n{self.alt_text}\n\n--- {cap_label} ---\n{self.caption}"
+        self.output_textbox.insert("1.0", display_text)
+
+        # Status Label
+        msg = self.generator.get_locale_string(lang, "success_msg")
+        self.status_label.configure(text=msg + audio_msg)
 
     def save_image(self):
         if self.last_generated_image_path:

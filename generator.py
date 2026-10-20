@@ -1,5 +1,7 @@
 import os
 import json
+import asyncio
+import edge_tts
 from PIL import Image, ImageDraw, ImageFont
 
 class Generator:
@@ -36,6 +38,34 @@ class Generator:
         alt_text = self.get_locale_string(lang, "alt_text_template", description=description, verse=verse, reference=reference)
         caption = self.get_locale_string(lang, "caption_template", verse=verse, reference=reference)
         return alt_text, caption
+
+    def generate_audio(self, lang, verse, reference, gender="Female"):
+        voices = {
+            "pt-BR": {"Male": "pt-BR-AntonioNeural", "Female": "pt-BR-FranciscaNeural"},
+            "en": {"Male": "en-US-GuyNeural", "Female": "en-US-JennyNeural"},
+            "es": {"Male": "es-ES-AlvaroNeural", "Female": "es-ES-ElviraNeural"}
+        }
+
+        lang_code = "pt-BR"
+        if "English" in lang:
+            lang_code = "en"
+        elif "Español" in lang:
+            lang_code = "es"
+
+        voice = voices[lang_code].get(gender, voices[lang_code]["Female"])
+
+        text_to_read = f"{reference}. {verse}"
+
+        safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+        filename = f"{safe_ref}_{lang_code}.mp3"
+        output_path = os.path.join(self.output_dir, filename)
+
+        async def _generate():
+            communicate = edge_tts.Communicate(text_to_read, voice)
+            await communicate.save(output_path)
+
+        asyncio.run(_generate())
+        return output_path
 
     def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0):
         lang_code = "pt"
@@ -147,15 +177,7 @@ class Generator:
 
         draw.text((x_ref, y_ref), reference, font=font_small, fill=rgba_color)
 
-        # Generate output filename
-        safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
-        filename = f"{safe_ref}_{lang_code}.png"
-        output_path = os.path.join(self.output_dir, filename)
-
-        # Convert back to RGB for saving as PNG/JPEG if preferred, but PNG supports RGBA
-        img.save(output_path, "PNG")
-
-        return output_path
+        return img
 
     def wrap_text(self, text, font, max_width, draw):
         lines = []
