@@ -6,7 +6,7 @@ class YouVersionAPI:
     @staticmethod
     def get_headers(app_key):
         return {
-            "X-YVP-App-Key": app_key,
+            "x-youversion-developer-token": app_key,
             "Accept": "application/json"
         }
 
@@ -22,9 +22,15 @@ class YouVersionAPI:
             data = response.json()
 
             versions = []
+            lang_prefix = lang[:2].lower()
+            # ISO 639-3 mapping for common ones
+            if lang_prefix == "pt": lang_match = ["pt", "por"]
+            elif lang_prefix == "es": lang_match = ["es", "spa"]
+            else: lang_match = ["en", "eng"]
+
             for item in data.get("data", []):
-                # Optionally filter by language if the API returns language info
-                if item.get("language", {}).get("tag", "").startswith(lang[:2]):
+                tag = item.get("language", {}).get("tag", "").lower()
+                if any(tag.startswith(t) for t in lang_match):
                     versions.append({"id": item["id"], "name": item["abbreviation"] or item["name"]})
             return versions
         except Exception as e:
@@ -33,8 +39,11 @@ class YouVersionAPI:
 
     @staticmethod
     def get_passage(app_key, bible_id, reference):
+        from parse_ref import parse_reference
+        usfm_ref = parse_reference(reference)
+
         # Reference should be in format like "JHN.3.16"
-        url = f"{YouVersionAPI.BASE_URL}/bibles/{bible_id}/passages/{reference}"
+        url = f"{YouVersionAPI.BASE_URL}/bibles/{bible_id}/passages/{usfm_ref}"
         headers = YouVersionAPI.get_headers(app_key)
         try:
             response = requests.get(url, headers=headers)

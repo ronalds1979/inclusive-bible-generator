@@ -22,11 +22,10 @@ class App(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
 
         # Main Containers
-        self.left_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.left_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.left_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
         self.left_frame.grid_columnconfigure(0, weight=1)
         self.left_frame.grid_columnconfigure(1, weight=1)
-        self.left_frame.grid_rowconfigure(11, weight=1)
 
         self.right_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.right_frame.grid(row=0, column=1, padx=(0, 20), pady=20, sticky="nsew")
@@ -195,9 +194,13 @@ class App(ctk.CTk):
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
         self.output_textbox.grid(row=12, column=0, columnspan=2, pady=10, sticky="ew")
 
+        # Generate Button
+        self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
+        self.generate_btn.grid(row=13, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+
         # Copy/Save Buttons Frame
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.buttons_frame.grid(row=13, column=0, columnspan=2, pady=10)
+        self.buttons_frame.grid(row=14, column=0, columnspan=2, pady=10)
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt)
         self.copy_alt_btn.grid(row=0, column=0, padx=10)
@@ -209,7 +212,7 @@ class App(ctk.CTk):
         self.save_btn.grid(row=0, column=2, padx=10)
 
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
-        self.status_label.grid(row=14, column=0, columnspan=2, pady=10)
+        self.status_label.grid(row=15, column=0, columnspan=2, pady=10)
 
         self.alt_text = ""
         self.caption = ""
@@ -246,6 +249,7 @@ class App(ctk.CTk):
         self.api_key_label.configure(text=self.generator.get_locale_string(lang, "api_key_label"))
         self.bible_version_label.configure(text=self.generator.get_locale_string(lang, "bible_version_label"))
         self.fetch_btn.configure(text=self.generator.get_locale_string(lang, "fetch_verse_btn"))
+        self.generate_btn.configure(text=self.generator.get_locale_string(lang, "generate_btn"))
 
         self.aspect_ratio_label.configure(text=self.generator.get_locale_string(lang, "aspect_ratio_label"))
         self.aspect_ratio_dropdown.configure(values=[
