@@ -74,13 +74,13 @@ class Generator:
         if img_ratio > target_ratio:
             # Image is wider than target ratio
             new_w = int(img_h * target_ratio)
-            left = (img_w - new_w) / 2
+            left = int((img_w - new_w) / 2)
             right = left + new_w
             img = img.crop((left, 0, right, img_h))
         elif img_ratio < target_ratio:
             # Image is taller than target ratio
             new_h = int(img_w / target_ratio)
-            top = (img_h - new_h) / 2
+            top = int((img_h - new_h) / 2)
             bottom = top + new_h
             img = img.crop((0, top, img_w, bottom))
 

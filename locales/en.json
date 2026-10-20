@@ -1,5 +1,6 @@
 {
   "title": "inclusive-bible-generator",
+  "instructions": "1. Select language. 2. Enter verse and reference. 3. Choose ratio and background. 4. Generate and save!",
   "verse_label": "Bible Verse",
   "reference_label": "Reference (e.g., Psalm 119:105)",
   "language_label": "Language",

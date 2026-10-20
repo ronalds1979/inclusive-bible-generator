@@ -1,5 +1,6 @@
 {
   "title": "inclusive-bible-generator",
+  "instructions": "1. Selecciona el idioma. 2. Introduce versículo y referencia. 3. Elige formato y fondo. 4. ¡Genera y guarda!",
   "verse_label": "Versículo Bíblico",
   "reference_label": "Referencia (ej: Salmos 119:105)",
   "language_label": "Idioma",
