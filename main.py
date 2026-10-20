@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from generator import Generator
+from youversion_api import YouVersionAPI
 import pyperclip
 import os
 
@@ -46,26 +47,52 @@ class App(ctk.CTk):
         self.instructions_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", justify="left")
         self.instructions_label.grid(row=1, column=0, columnspan=2, pady=(0, 10), sticky="w")
 
-        # Verse Input
-        self.verse_label = ctk.CTkLabel(self.left_frame, text="Versículo Bíblico:")
-        self.verse_label.grid(row=2, column=0, pady=(10, 0), sticky="w")
+        # YouVersion API Auth / Fetch
+        self.api_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
+        self.api_frame.grid(row=2, column=0, columnspan=2, pady=(10, 10), sticky="ew")
+        self.api_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
-        self.verse_input = ctk.CTkTextbox(self.left_frame, height=80)
-        self.verse_input.grid(row=3, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+        self.api_key_label = ctk.CTkLabel(self.api_frame, text="Chave API YouVersion (Opcional):")
+        self.api_key_label.grid(row=0, column=0, pady=(0, 5), sticky="w")
+
+        self.api_key_var = ctk.StringVar()
+        self.api_key_entry = ctk.CTkEntry(self.api_frame, textvariable=self.api_key_var, show="*")
+        self.api_key_entry.grid(row=1, column=0, padx=(0, 5), sticky="ew")
+        self.api_key_entry.bind("<FocusOut>", self.load_bible_versions)
+
+        self.bible_version_label = ctk.CTkLabel(self.api_frame, text="Versão:")
+        self.bible_version_label.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="w")
+
+        self.bible_version_var = ctk.StringVar()
+        self.bible_version_dropdown = ctk.CTkOptionMenu(
+            self.api_frame, values=["-"], variable=self.bible_version_var
+        )
+        self.bible_version_dropdown.grid(row=1, column=1, padx=5, sticky="ew")
+        self.bible_versions_map = {}
+
+        self.fetch_btn = ctk.CTkButton(self.api_frame, text="Buscar Versículo", command=self.fetch_verse)
+        self.fetch_btn.grid(row=1, column=2, padx=(5, 0), sticky="ew")
 
         # Reference Input
         self.reference_label = ctk.CTkLabel(self.left_frame, text="Referência (ex: Salmos 119:105):")
-        self.reference_label.grid(row=4, column=0, pady=(10, 0), sticky="w")
+        self.reference_label.grid(row=3, column=0, pady=(0, 0), sticky="w")
 
         self.reference_input = ctk.CTkEntry(self.left_frame)
-        self.reference_input.grid(row=5, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+        self.reference_input.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+
+        # Verse Input
+        self.verse_label = ctk.CTkLabel(self.left_frame, text="Versículo Bíblico:")
+        self.verse_label.grid(row=5, column=0, pady=(0, 0), sticky="w")
+
+        self.verse_input = ctk.CTkTextbox(self.left_frame, height=80)
+        self.verse_input.grid(row=6, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
         # Background Selector
         self.background_label = ctk.CTkLabel(self.left_frame, text="Imagem de Fundo:")
-        self.background_label.grid(row=6, column=0, pady=(10, 0), sticky="w")
+        self.background_label.grid(row=7, column=0, pady=(10, 0), sticky="w")
 
         self.bg_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.bg_frame.grid(row=7, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+        self.bg_frame.grid(row=8, column=0, columnspan=2, pady=(0, 10), sticky="ew")
         self.bg_frame.grid_columnconfigure(0, weight=1)
         self.bg_frame.grid_columnconfigure(1, weight=1)
 
@@ -88,7 +115,7 @@ class App(ctk.CTk):
 
         # Font customization block
         self.font_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.font_config_frame.grid(row=8, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+        self.font_config_frame.grid(row=9, column=0, columnspan=2, pady=(10, 0), sticky="ew")
         self.font_config_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
         self.font_type_label = ctk.CTkLabel(self.font_config_frame, text="Tipo de Fonte:")
@@ -118,7 +145,7 @@ class App(ctk.CTk):
 
         # Bottom customization block
         self.bottom_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.bottom_config_frame.grid(row=9, column=0, columnspan=2, pady=(10, 20), sticky="ew")
+        self.bottom_config_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20), sticky="ew")
         self.bottom_config_frame.grid_columnconfigure((0, 1), weight=1)
 
         self.aspect_ratio_label = ctk.CTkLabel(self.bottom_config_frame, text="Proporção da Imagem:")
@@ -142,7 +169,7 @@ class App(ctk.CTk):
 
         # Audio Configuration block
         self.audio_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.audio_config_frame.grid(row=10, column=0, columnspan=2, pady=(0, 20), sticky="ew")
+        self.audio_config_frame.grid(row=11, column=0, columnspan=2, pady=(0, 20), sticky="ew")
         self.audio_config_frame.grid_columnconfigure((0, 1), weight=1)
 
         self.audio_generate_var = ctk.BooleanVar(value=False)
@@ -166,11 +193,11 @@ class App(ctk.CTk):
 
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
-        self.output_textbox.grid(row=11, column=0, columnspan=2, pady=10, sticky="ew")
+        self.output_textbox.grid(row=12, column=0, columnspan=2, pady=10, sticky="ew")
 
         # Copy/Save Buttons Frame
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.buttons_frame.grid(row=12, column=0, columnspan=2, pady=10)
+        self.buttons_frame.grid(row=13, column=0, columnspan=2, pady=10)
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt)
         self.copy_alt_btn.grid(row=0, column=0, padx=10)
@@ -182,7 +209,7 @@ class App(ctk.CTk):
         self.save_btn.grid(row=0, column=2, padx=10)
 
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
-        self.status_label.grid(row=13, column=0, columnspan=2, pady=10)
+        self.status_label.grid(row=14, column=0, columnspan=2, pady=10)
 
         self.alt_text = ""
         self.caption = ""
@@ -207,6 +234,7 @@ class App(ctk.CTk):
     def change_language(self, choice):
         self.current_lang = choice
         self.update_ui_texts()
+        self.load_bible_versions()
 
     def update_ui_texts(self):
         lang = self.get_lang_key()
@@ -215,6 +243,9 @@ class App(ctk.CTk):
         self.instructions_label.configure(text=self.generator.get_locale_string(lang, "instructions"))
         self.verse_label.configure(text=self.generator.get_locale_string(lang, "verse_label"))
         self.reference_label.configure(text=self.generator.get_locale_string(lang, "reference_label"))
+        self.api_key_label.configure(text=self.generator.get_locale_string(lang, "api_key_label"))
+        self.bible_version_label.configure(text=self.generator.get_locale_string(lang, "bible_version_label"))
+        self.fetch_btn.configure(text=self.generator.get_locale_string(lang, "fetch_verse_btn"))
 
         self.aspect_ratio_label.configure(text=self.generator.get_locale_string(lang, "aspect_ratio_label"))
         self.aspect_ratio_dropdown.configure(values=[
@@ -258,6 +289,73 @@ class App(ctk.CTk):
         self.copy_caption_btn.configure(text=self.generator.get_locale_string(lang, "copy_caption_btn"))
         self.save_btn.configure(text=self.generator.get_locale_string(lang, "save_btn"))
         self.status_label.configure(text="")
+
+    def load_bible_versions(self, event=None):
+        api_key = self.api_key_var.get().strip()
+        if not api_key:
+            return
+
+        import threading
+
+        def _fetch():
+            self.after(0, lambda: self.status_label.configure(text="Loading Bible versions..."))
+
+            lang_code = "pt-BR"
+            if "en" in self.get_lang_key(): lang_code = "en"
+            elif "es" in self.get_lang_key(): lang_code = "es"
+
+            versions = YouVersionAPI.get_versions(api_key, lang=lang_code)
+
+            if versions:
+                self.bible_versions_map = {v["name"]: v["id"] for v in versions}
+                version_names = list(self.bible_versions_map.keys())
+                self.after(0, lambda: self._update_version_dropdown(version_names))
+            else:
+                self.after(0, lambda: self._update_version_dropdown_error())
+
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def _update_version_dropdown(self, version_names):
+        self.bible_version_dropdown.configure(values=version_names)
+        self.bible_version_var.set(version_names[0])
+        self.status_label.configure(text="")
+
+    def _update_version_dropdown_error(self):
+        self.bible_version_dropdown.configure(values=["-"])
+        self.bible_version_var.set("-")
+        self.status_label.configure(text="Error loading versions or invalid API key.")
+
+    def fetch_verse(self):
+        api_key = self.api_key_var.get().strip()
+        version_name = self.bible_version_var.get()
+        reference = self.reference_input.get().strip()
+
+        if not api_key or version_name == "-" or not reference:
+            self.status_label.configure(text="Please provide API Key, Version, and Reference.")
+            return
+
+        bible_id = self.bible_versions_map.get(version_name)
+        if not bible_id:
+            return
+
+        import threading
+
+        def _fetch():
+            self.after(0, lambda: self.status_label.configure(text="Fetching verse..."))
+
+            content = YouVersionAPI.get_passage(api_key, bible_id, reference)
+            self.after(0, lambda: self._update_verse_ui(content))
+
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def _update_verse_ui(self, content):
+        if content:
+            self.verse_input.delete("1.0", "end")
+            self.verse_input.insert("1.0", content)
+            self.status_label.configure(text="Verse fetched successfully.")
+            self.trigger_preview()
+        else:
+            self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).")
 
     def trigger_preview(self, *args):
         if hasattr(self, '_preview_after_id'):
