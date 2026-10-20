@@ -14,58 +14,70 @@ class App(ctk.CTk):
         self.current_lang = "Português (Brasil)"
 
         self.title("inclusive-bible-generator")
-        self.geometry("800x600")
+        self.geometry("1100x750")
 
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(5, weight=1)
+        self.grid_columnconfigure(0, weight=1) # Left side controls
+        self.grid_columnconfigure(1, weight=1) # Right side preview
+        self.grid_rowconfigure(0, weight=1)
+
+        # Main Containers
+        self.left_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.left_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        self.left_frame.grid_columnconfigure(0, weight=1)
+        self.left_frame.grid_columnconfigure(1, weight=1)
+        self.left_frame.grid_rowconfigure(11, weight=1)
+
+        self.right_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.right_frame.grid(row=0, column=1, padx=(0, 20), pady=20, sticky="nsew")
+        self.right_frame.grid_columnconfigure(0, weight=1)
+        self.right_frame.grid_rowconfigure(0, weight=1)
 
         # Language Selector
         self.lang_var = ctk.StringVar(value="Português (Brasil)")
         self.lang_dropdown = ctk.CTkOptionMenu(
-            self,
+            self.left_frame,
             values=["Português (Brasil)", "English (US/UK)", "Español (España)"],
             variable=self.lang_var,
             command=self.change_language
         )
-        self.lang_dropdown.grid(row=0, column=0, columnspan=2, pady=10, padx=20, sticky="ew")
+        self.lang_dropdown.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
         # Instructions
-        self.instructions_label = ctk.CTkLabel(self, text="", text_color="gray", justify="left")
-        self.instructions_label.grid(row=1, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="w")
+        self.instructions_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", justify="left")
+        self.instructions_label.grid(row=1, column=0, columnspan=2, pady=(0, 10), sticky="w")
 
         # Verse Input
-        self.verse_label = ctk.CTkLabel(self, text="Versículo Bíblico:")
-        self.verse_label.grid(row=2, column=0, padx=20, pady=(10, 0), sticky="w")
+        self.verse_label = ctk.CTkLabel(self.left_frame, text="Versículo Bíblico:")
+        self.verse_label.grid(row=2, column=0, pady=(10, 0), sticky="w")
 
-        self.verse_input = ctk.CTkTextbox(self, height=80)
-        self.verse_input.grid(row=3, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="ew")
+        self.verse_input = ctk.CTkTextbox(self.left_frame, height=80)
+        self.verse_input.grid(row=3, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
         # Reference Input
-        self.reference_label = ctk.CTkLabel(self, text="Referência (ex: Salmos 119:105):")
-        self.reference_label.grid(row=4, column=0, padx=20, pady=(10, 0), sticky="w")
+        self.reference_label = ctk.CTkLabel(self.left_frame, text="Referência (ex: Salmos 119:105):")
+        self.reference_label.grid(row=4, column=0, pady=(10, 0), sticky="w")
 
-        self.reference_input = ctk.CTkEntry(self)
-        self.reference_input.grid(row=5, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="ew")
+        self.reference_input = ctk.CTkEntry(self.left_frame)
+        self.reference_input.grid(row=5, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
         # Aspect Ratio Selector
-        self.aspect_ratio_label = ctk.CTkLabel(self, text="Proporção da Imagem:")
-        self.aspect_ratio_label.grid(row=6, column=0, padx=20, pady=(10, 0), sticky="w")
+        self.aspect_ratio_label = ctk.CTkLabel(self.left_frame, text="Proporção da Imagem:")
+        self.aspect_ratio_label.grid(row=6, column=0, pady=(10, 0), sticky="w")
 
         self.aspect_ratio_var = ctk.StringVar(value="1:1")
         self.aspect_ratio_dropdown = ctk.CTkOptionMenu(
-            self,
+            self.left_frame,
             values=["1:1", "3:4", "4:3"],
             variable=self.aspect_ratio_var
         )
-        self.aspect_ratio_dropdown.grid(row=7, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="ew")
+        self.aspect_ratio_dropdown.grid(row=7, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
         # Background Selector
-        self.background_label = ctk.CTkLabel(self, text="Imagem de Fundo:")
-        self.background_label.grid(row=8, column=0, padx=20, pady=(10, 0), sticky="w")
+        self.background_label = ctk.CTkLabel(self.left_frame, text="Imagem de Fundo:")
+        self.background_label.grid(row=8, column=0, pady=(10, 0), sticky="w")
 
-        self.bg_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.bg_frame.grid(row=9, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="ew")
+        self.bg_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
+        self.bg_frame.grid(row=9, column=0, columnspan=2, pady=(0, 10), sticky="ew")
         self.bg_frame.grid_columnconfigure(0, weight=1)
         self.bg_frame.grid_columnconfigure(1, weight=1)
 
@@ -87,15 +99,15 @@ class App(ctk.CTk):
         self.custom_image_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
         # Generate Button
-        self.generate_btn = ctk.CTkButton(self, text="Gerar Conteúdo", command=self.generate_content)
+        self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
         self.generate_btn.grid(row=10, column=0, columnspan=2, pady=20)
 
         # Output Textbox (Alt-Text & Caption)
-        self.output_textbox = ctk.CTkTextbox(self, height=150)
-        self.output_textbox.grid(row=11, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
+        self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
+        self.output_textbox.grid(row=11, column=0, columnspan=2, pady=10, sticky="ew")
 
         # Copy/Save Buttons Frame
-        self.buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
         self.buttons_frame.grid(row=12, column=0, columnspan=2, pady=10)
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt)
@@ -107,12 +119,16 @@ class App(ctk.CTk):
         self.save_btn = ctk.CTkButton(self.buttons_frame, text="Salvar Imagem", command=self.save_image)
         self.save_btn.grid(row=0, column=2, padx=10)
 
-        self.status_label = ctk.CTkLabel(self, text="", text_color="green")
+        self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
         self.status_label.grid(row=13, column=0, columnspan=2, pady=10)
 
         self.alt_text = ""
         self.caption = ""
         self.last_generated_image_path = None
+
+        # Image Preview
+        self.preview_label = ctk.CTkLabel(self.right_frame, text="Nenhuma imagem gerada ainda.", text_color="gray")
+        self.preview_label.grid(row=0, column=0, sticky="nsew")
 
         # Initial UI Update
         self.update_ui_texts()
@@ -217,6 +233,24 @@ class App(ctk.CTk):
 
         msg = self.generator.get_locale_string(lang, "success_msg")
         self.status_label.configure(text=msg)
+
+        self.update_preview(img_path)
+
+    def update_preview(self, img_path):
+        from PIL import Image
+        try:
+            pil_img = Image.open(img_path)
+
+            # Calculate preview size (max 500x500 to fit on screen)
+            preview_max_size = (500, 500)
+            pil_img.thumbnail(preview_max_size, Image.Resampling.LANCZOS)
+
+            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
+            self.preview_label.configure(image=ctk_img, text="")
+            # Keep a reference so it's not garbage collected
+            self.preview_label.image = ctk_img
+        except Exception as e:
+            self.preview_label.configure(image="", text=f"Error loading preview:\n{str(e)}")
 
     def save_image(self):
         if self.last_generated_image_path:
