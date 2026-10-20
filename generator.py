@@ -37,7 +37,7 @@ class Generator:
         caption = self.get_locale_string(lang, "caption_template", verse=verse, reference=reference)
         return alt_text, caption
 
-    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1"):
+    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0):
         lang_code = "pt"
         if "English" in lang:
             lang_code = "en"
@@ -92,14 +92,28 @@ class Generator:
 
         draw = ImageDraw.Draw(img)
 
+        # Convert hex color to RGBA
+        fill_color = font_color.lstrip('#')
+        if len(fill_color) == 6:
+            r, g, b = tuple(int(fill_color[i:i+2], 16) for i in (0, 2, 4))
+            rgba_color = (r, g, b, 255)
+        else:
+            rgba_color = (255, 255, 255, 255)
+
         # Load font
-        font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
+        font_path = os.path.join(self.fonts_dir, font_type)
         try:
-            font_large = ImageFont.truetype(font_path, 60)
-            font_small = ImageFont.truetype(font_path, 40)
+            font_large = ImageFont.truetype(font_path, int(font_size))
+            font_small = ImageFont.truetype(font_path, int(font_size * 0.66))
         except IOError:
-            font_large = ImageFont.load_default()
-            font_small = ImageFont.load_default()
+            # Fallback
+            default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
+            try:
+                font_large = ImageFont.truetype(default_font_path, int(font_size))
+                font_small = ImageFont.truetype(default_font_path, int(font_size * 0.66))
+            except IOError:
+                font_large = ImageFont.load_default()
+                font_small = ImageFont.load_default()
 
         # Simple text wrapping
         max_width = int(target_width * 0.85) # dynamic max width
@@ -115,10 +129,11 @@ class Generator:
              verse_width, verse_height = draw.textsize(wrapped_verse, font=font_large)
 
         x_text = (target_width - verse_width) / 2
-        y_text = (target_height - verse_height) / 2 - 50
+        # Apply y_offset
+        y_text = (target_height - verse_height) / 2 - 50 + int(y_offset)
 
         # Draw verse
-        draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=(255, 255, 255, 255), align="center")
+        draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=rgba_color, align="center")
 
         # Draw reference
         try:
@@ -128,9 +143,9 @@ class Generator:
              ref_width, ref_height = draw.textsize(reference, font=font_small)
 
         x_ref = (target_width - ref_width) / 2
-        y_ref = y_text + verse_height + 40
+        y_ref = y_text + verse_height + int(font_size * 0.66)
 
-        draw.text((x_ref, y_ref), reference, font=font_small, fill=(255, 255, 255, 255))
+        draw.text((x_ref, y_ref), reference, font=font_small, fill=rgba_color)
 
         # Generate output filename
         safe_ref = reference.lower().replace(" ", "_").replace(":", "_")

@@ -60,24 +60,12 @@ class App(ctk.CTk):
         self.reference_input = ctk.CTkEntry(self.left_frame)
         self.reference_input.grid(row=5, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
-        # Aspect Ratio Selector
-        self.aspect_ratio_label = ctk.CTkLabel(self.left_frame, text="Proporção da Imagem:")
-        self.aspect_ratio_label.grid(row=6, column=0, pady=(10, 0), sticky="w")
-
-        self.aspect_ratio_var = ctk.StringVar(value="1:1")
-        self.aspect_ratio_dropdown = ctk.CTkOptionMenu(
-            self.left_frame,
-            values=["1:1", "3:4", "4:3"],
-            variable=self.aspect_ratio_var
-        )
-        self.aspect_ratio_dropdown.grid(row=7, column=0, columnspan=2, pady=(0, 10), sticky="ew")
-
         # Background Selector
         self.background_label = ctk.CTkLabel(self.left_frame, text="Imagem de Fundo:")
-        self.background_label.grid(row=8, column=0, pady=(10, 0), sticky="w")
+        self.background_label.grid(row=6, column=0, pady=(10, 0), sticky="w")
 
         self.bg_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.bg_frame.grid(row=9, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+        self.bg_frame.grid(row=7, column=0, columnspan=2, pady=(0, 10), sticky="ew")
         self.bg_frame.grid_columnconfigure(0, weight=1)
         self.bg_frame.grid_columnconfigure(1, weight=1)
 
@@ -98,17 +86,71 @@ class App(ctk.CTk):
         self.custom_image_btn = ctk.CTkButton(self.bg_frame, text="Selecionar Imagem Personalizada", command=self.select_custom_image)
         self.custom_image_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
-        # Generate Button
-        self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
-        self.generate_btn.grid(row=10, column=0, columnspan=2, pady=20)
+        # Font customization block
+        self.font_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
+        self.font_config_frame.grid(row=8, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+        self.font_config_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
+        self.font_type_label = ctk.CTkLabel(self.font_config_frame, text="Tipo de Fonte:")
+        self.font_type_label.grid(row=0, column=0, pady=(0, 5), padx=(0, 5), sticky="w")
+
+        self.font_var = ctk.StringVar(value="Roboto-Regular.ttf")
+        font_files = [f for f in os.listdir(self.generator.fonts_dir) if f.endswith('.ttf')]
+        self.font_dropdown = ctk.CTkOptionMenu(
+            self.font_config_frame, values=font_files, variable=self.font_var, command=self.trigger_preview
+        )
+        self.font_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
+
+        self.font_color_label = ctk.CTkLabel(self.font_config_frame, text="Cor do Texto:")
+        self.font_color_label.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="w")
+
+        self.font_color_var = ctk.StringVar(value="#FFFFFF")
+        self.font_color_entry = ctk.CTkEntry(self.font_config_frame, textvariable=self.font_color_var)
+        self.font_color_entry.grid(row=1, column=1, padx=5, sticky="ew")
+        self.font_color_entry.bind("<KeyRelease>", self.trigger_preview)
+
+        self.font_size_label = ctk.CTkLabel(self.font_config_frame, text="Tamanho da Fonte:")
+        self.font_size_label.grid(row=0, column=2, pady=(0, 5), padx=(5, 0), sticky="w")
+
+        self.font_size_var = ctk.IntVar(value=60)
+        self.font_size_slider = ctk.CTkSlider(self.font_config_frame, from_=20, to=120, variable=self.font_size_var, command=self.trigger_preview)
+        self.font_size_slider.grid(row=1, column=2, padx=(5, 0), sticky="ew")
+
+        # Bottom customization block
+        self.bottom_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
+        self.bottom_config_frame.grid(row=9, column=0, columnspan=2, pady=(10, 20), sticky="ew")
+        self.bottom_config_frame.grid_columnconfigure((0, 1), weight=1)
+
+        self.aspect_ratio_label = ctk.CTkLabel(self.bottom_config_frame, text="Proporção da Imagem:")
+        self.aspect_ratio_label.grid(row=0, column=0, pady=(0, 5), sticky="w")
+
+        self.aspect_ratio_var = ctk.StringVar(value="1:1")
+        self.aspect_ratio_dropdown = ctk.CTkOptionMenu(
+            self.bottom_config_frame,
+            values=["1:1", "3:4", "4:3"],
+            variable=self.aspect_ratio_var,
+            command=self.trigger_preview
+        )
+        self.aspect_ratio_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
+
+        self.y_offset_label = ctk.CTkLabel(self.bottom_config_frame, text="Posição Vertical (Y):")
+        self.y_offset_label.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="w")
+
+        self.y_offset_var = ctk.IntVar(value=0)
+        self.y_offset_slider = ctk.CTkSlider(self.bottom_config_frame, from_=-400, to=400, variable=self.y_offset_var, command=self.trigger_preview)
+        self.y_offset_slider.grid(row=1, column=1, padx=5, sticky="ew")
+
+        # Bind text inputs to preview
+        self.verse_input.bind("<KeyRelease>", self.trigger_preview)
+        self.reference_input.bind("<KeyRelease>", self.trigger_preview)
 
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
-        self.output_textbox.grid(row=11, column=0, columnspan=2, pady=10, sticky="ew")
+        self.output_textbox.grid(row=10, column=0, columnspan=2, pady=10, sticky="ew")
 
         # Copy/Save Buttons Frame
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.buttons_frame.grid(row=12, column=0, columnspan=2, pady=10)
+        self.buttons_frame.grid(row=11, column=0, columnspan=2, pady=10)
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt)
         self.copy_alt_btn.grid(row=0, column=0, padx=10)
@@ -120,11 +162,14 @@ class App(ctk.CTk):
         self.save_btn.grid(row=0, column=2, padx=10)
 
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
-        self.status_label.grid(row=13, column=0, columnspan=2, pady=10)
+        self.status_label.grid(row=12, column=0, columnspan=2, pady=10)
 
         self.alt_text = ""
         self.caption = ""
         self.last_generated_image_path = None
+
+        # Start initial preview
+        self.trigger_preview()
 
         # Image Preview
         self.preview_label = ctk.CTkLabel(self.right_frame, text="Nenhuma imagem gerada ainda.", text_color="gray")
@@ -170,11 +215,20 @@ class App(ctk.CTk):
         self.background_label.configure(text=self.generator.get_locale_string(lang, "background_label"))
         self.custom_image_btn.configure(text=self.generator.get_locale_string(lang, "custom_image_btn"))
 
-        self.generate_btn.configure(text=self.generator.get_locale_string(lang, "generate_btn"))
+        self.font_type_label.configure(text=self.generator.get_locale_string(lang, "font_type_label"))
+        self.font_color_label.configure(text=self.generator.get_locale_string(lang, "font_color_label"))
+        self.font_size_label.configure(text=self.generator.get_locale_string(lang, "font_size_label"))
+        self.y_offset_label.configure(text=self.generator.get_locale_string(lang, "y_offset_label"))
+
         self.copy_alt_btn.configure(text=self.generator.get_locale_string(lang, "copy_alt_text_btn"))
         self.copy_caption_btn.configure(text=self.generator.get_locale_string(lang, "copy_caption_btn"))
         self.save_btn.configure(text=self.generator.get_locale_string(lang, "save_btn"))
         self.status_label.configure(text="")
+
+    def trigger_preview(self, *args):
+        if hasattr(self, '_preview_after_id'):
+            self.after_cancel(self._preview_after_id)
+        self._preview_after_id = self.after(500, self.generate_content)
 
     def clear_custom_image(self, _choice):
         self.custom_image_path = None
@@ -188,11 +242,16 @@ class App(ctk.CTk):
         if file_path:
             self.custom_image_path = file_path
             self.bg_var.set(os.path.basename(file_path))
+            self.trigger_preview()
 
     def generate_content(self):
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
         background = self.bg_var.get()
+        font_type = self.font_var.get()
+        font_color = self.font_color_var.get().strip()
+        font_size = self.font_size_var.get()
+        y_offset = self.y_offset_var.get()
 
         # Determine raw ratio from selection
         ratio_selection = self.aspect_ratio_var.get()
@@ -215,7 +274,11 @@ class App(ctk.CTk):
             reference,
             background_filename=background,
             custom_image_path=self.custom_image_path,
-            aspect_ratio=aspect_ratio
+            aspect_ratio=aspect_ratio,
+            font_type=font_type,
+            font_color=font_color,
+            font_size=font_size,
+            y_offset=y_offset
         )
         self.last_generated_image_path = img_path
 
