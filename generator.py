@@ -37,24 +37,54 @@ class Generator:
         caption = self.get_locale_string(lang, "caption_template", verse=verse, reference=reference)
         return alt_text, caption
 
-    def generate_image(self, lang, verse, reference, background_filename="default.png"):
+    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1"):
         lang_code = "pt"
         if "English" in lang:
             lang_code = "en"
         elif "Español" in lang:
             lang_code = "es"
 
-        bg_path = os.path.join(self.backgrounds_dir, background_filename)
-        if not os.path.exists(bg_path):
-            bg_path = os.path.join(self.backgrounds_dir, "default.png")
+        target_width = 1080
+        target_height = 1080
+
+        if aspect_ratio == "3:4":
+            target_width = 1080
+            target_height = 1440
+        elif aspect_ratio == "4:3":
+            target_width = 1440
+            target_height = 1080
+
+        if custom_image_path and os.path.exists(custom_image_path):
+            bg_path = custom_image_path
+        else:
+            bg_path = os.path.join(self.backgrounds_dir, background_filename)
+            if not os.path.exists(bg_path):
+                bg_path = os.path.join(self.backgrounds_dir, "default.png")
 
         try:
             img = Image.open(bg_path).convert("RGBA")
         except Exception:
-            img = Image.new('RGBA', (1080, 1080), color=(73, 109, 137, 255))
+            img = Image.new('RGBA', (target_width, target_height), color=(73, 109, 137, 255))
 
-        # Resize/Crop to 1080x1080 if necessary, to keep it simple just resize
-        img = img.resize((1080, 1080))
+        # Center crop and resize
+        img_w, img_h = img.size
+        img_ratio = img_w / img_h
+        target_ratio = target_width / target_height
+
+        if img_ratio > target_ratio:
+            # Image is wider than target ratio
+            new_w = int(img_h * target_ratio)
+            left = (img_w - new_w) / 2
+            right = left + new_w
+            img = img.crop((left, 0, right, img_h))
+        elif img_ratio < target_ratio:
+            # Image is taller than target ratio
+            new_h = int(img_w / target_ratio)
+            top = (img_h - new_h) / 2
+            bottom = top + new_h
+            img = img.crop((0, top, img_w, bottom))
+
+        img = img.resize((target_width, target_height))
 
         # Add dark overlay
         overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
@@ -72,11 +102,10 @@ class Generator:
             font_small = ImageFont.load_default()
 
         # Simple text wrapping
-        max_width = 900
+        max_width = int(target_width * 0.85) # dynamic max width
         wrapped_verse = self.wrap_text(verse, font_large, max_width, draw)
 
         # Calculate text position to center it
-        # Assuming typical line heights
         try:
             bbox = draw.multiline_textbbox((0, 0), wrapped_verse, font=font_large)
             verse_width = bbox[2] - bbox[0]
@@ -85,8 +114,8 @@ class Generator:
              # Fallback for older Pillow
              verse_width, verse_height = draw.textsize(wrapped_verse, font=font_large)
 
-        x_text = (1080 - verse_width) / 2
-        y_text = (1080 - verse_height) / 2 - 50
+        x_text = (target_width - verse_width) / 2
+        y_text = (target_height - verse_height) / 2 - 50
 
         # Draw verse
         draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=(255, 255, 255, 255), align="center")
@@ -98,7 +127,7 @@ class Generator:
         except AttributeError:
              ref_width, ref_height = draw.textsize(reference, font=font_small)
 
-        x_ref = (1080 - ref_width) / 2
+        x_ref = (target_width - ref_width) / 2
         y_ref = y_text + verse_height + 40
 
         draw.text((x_ref, y_ref), reference, font=font_small, fill=(255, 255, 255, 255))
