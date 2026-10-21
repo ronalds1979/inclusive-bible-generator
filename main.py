@@ -460,7 +460,7 @@ class App(ctk.CTk):
                 gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
                 try:
                     audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key)
-                    audio_msg = f"\nÁudio salvo em: {os.path.basename(audio_path)}"
+                    audio_msg = f"\nÁudio salvo em: {os.path.abspath(audio_path)}"
                 except Exception as e:
                     audio_msg = f"\nErro ao gerar áudio: {e}"
 
