@@ -39,7 +39,7 @@ class Generator:
         caption = self.get_locale_string(lang, "caption_template", verse=verse, reference=reference)
         return alt_text, caption
 
-    def generate_audio(self, lang, verse, reference, gender="Female"):
+    def generate_audio(self, lang, verse, reference, gender="Female", custom_output_path=None):
         voices = {
             "pt-BR": {"Male": "pt-BR-AntonioNeural", "Female": "pt-BR-FranciscaNeural"},
             "en": {"Male": "en-US-GuyNeural", "Female": "en-US-JennyNeural"},
@@ -56,9 +56,12 @@ class Generator:
 
         text_to_read = f"{reference}. {verse}"
 
-        safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
-        filename = f"{safe_ref}_{lang_code}.mp3"
-        output_path = os.path.join(self.output_dir, filename)
+        if custom_output_path:
+            output_path = custom_output_path
+        else:
+            safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+            filename = f"{safe_ref}_{lang_code}.mp3"
+            output_path = os.path.join(self.output_dir, filename)
 
         async def _generate():
             communicate = edge_tts.Communicate(text_to_read, voice)

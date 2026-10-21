@@ -431,6 +431,25 @@ class App(ctk.CTk):
         if "en" in lang: lang_code = "en"
         elif "es" in lang: lang_code = "es"
 
+        audio_save_path = None
+        if self.audio_generate_var.get():
+            from tkinter import filedialog
+
+            safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+            default_audio_filename = f"{safe_ref}_{lang_code}.mp3"
+
+            # Prompt user for audio save location before processing
+            audio_save_path = filedialog.asksaveasfilename(
+                defaultextension=".mp3",
+                initialfile=default_audio_filename,
+                title=self.generator.get_locale_string(lang, "save_btn") + " - Áudio",
+                filetypes=[("MP3 files", "*.mp3"), ("All files", "*.*")]
+            )
+
+            if not audio_save_path:
+                # User cancelled save dialog
+                return
+
         self.status_label.configure(text="Gerando arquivos...")
         self.update()
 
@@ -455,11 +474,11 @@ class App(ctk.CTk):
 
             # Generate Audio
             audio_msg = ""
-            if self.audio_generate_var.get():
+            if self.audio_generate_var.get() and audio_save_path:
                 gender_selection = self.gender_var.get()
                 gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
                 try:
-                    audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key)
+                    audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key, custom_output_path=audio_save_path)
                     audio_msg = f"\nÁudio salvo em: {os.path.abspath(audio_path)}"
                 except Exception as e:
                     audio_msg = f"\nErro ao gerar áudio: {e}"
