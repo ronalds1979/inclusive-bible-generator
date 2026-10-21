@@ -208,9 +208,6 @@ class App(ctk.CTk):
         self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption)
         self.copy_caption_btn.grid(row=0, column=1, padx=10)
 
-        self.save_btn = ctk.CTkButton(self.buttons_frame, text="Salvar Imagem", command=self.save_image)
-        self.save_btn.grid(row=0, column=2, padx=10)
-
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
         self.status_label.grid(row=15, column=0, columnspan=2, pady=10)
 
@@ -291,7 +288,6 @@ class App(ctk.CTk):
 
         self.copy_alt_btn.configure(text=self.generator.get_locale_string(lang, "copy_alt_text_btn"))
         self.copy_caption_btn.configure(text=self.generator.get_locale_string(lang, "copy_caption_btn"))
-        self.save_btn.configure(text=self.generator.get_locale_string(lang, "save_btn"))
         self.status_label.configure(text="")
 
     def load_bible_versions(self, event=None):
@@ -431,13 +427,23 @@ class App(ctk.CTk):
         if "en" in lang: lang_code = "en"
         elif "es" in lang: lang_code = "es"
 
+        from tkinter import filedialog
+        safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+        default_image_filename = f"{safe_ref}_{lang_code}.png"
+        default_audio_filename = f"{safe_ref}_{lang_code}.mp3"
+
+        # Prompt user for image save location before processing
+        image_save_path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            initialfile=default_image_filename,
+            title=self.generator.get_locale_string(lang, "save_btn") + " - Imagem",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")]
+        )
+        if not image_save_path:
+            return
+
         audio_save_path = None
         if self.audio_generate_var.get():
-            from tkinter import filedialog
-
-            safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
-            default_audio_filename = f"{safe_ref}_{lang_code}.mp3"
-
             # Prompt user for audio save location before processing
             audio_save_path = filedialog.asksaveasfilename(
                 defaultextension=".mp3",
@@ -445,9 +451,7 @@ class App(ctk.CTk):
                 title=self.generator.get_locale_string(lang, "save_btn") + " - Áudio",
                 filetypes=[("MP3 files", "*.mp3"), ("All files", "*.*")]
             )
-
             if not audio_save_path:
-                # User cancelled save dialog
                 return
 
         self.status_label.configure(text="Gerando arquivos...")
@@ -462,12 +466,8 @@ class App(ctk.CTk):
                 custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
                 font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
             )
-
-            safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
-            filename = f"{safe_ref}_{lang_code}.png"
-            output_path = os.path.join(self.generator.output_dir, filename)
-            pil_img.save(output_path, "PNG")
-            self.last_generated_image_path = output_path
+            pil_img.save(image_save_path, "PNG")
+            self.last_generated_image_path = image_save_path
 
             # Generate Texts
             self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
@@ -498,27 +498,6 @@ class App(ctk.CTk):
         # Status Label
         msg = self.generator.get_locale_string(lang, "success_msg")
         self.status_label.configure(text=msg + audio_msg)
-
-    def save_image(self):
-        if self.last_generated_image_path:
-            lang = self.get_lang_key()
-            import shutil
-            from tkinter import filedialog
-
-            # Extract filename
-            filename = os.path.basename(self.last_generated_image_path)
-
-            # Prompt user for save location
-            save_path = filedialog.asksaveasfilename(
-                defaultextension=".png",
-                initialfile=filename,
-                title=self.generator.get_locale_string(lang, "save_btn"),
-                filetypes=[("PNG files", "*.png"), ("All files", "*.*")]
-            )
-
-            if save_path:
-                shutil.copy2(self.last_generated_image_path, save_path)
-                self.status_label.configure(text=self.generator.get_locale_string(lang, "save_success_msg", path=save_path))
 
     def copy_alt(self):
         if self.alt_text:
