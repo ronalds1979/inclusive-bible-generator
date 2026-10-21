@@ -6,7 +6,7 @@ class YouVersionAPI:
     @staticmethod
     def get_headers(app_key):
         return {
-            "x-youversion-developer-token": app_key,
+            "X-YVP-App-Key": app_key,
             "Accept": "application/json"
         }
 
