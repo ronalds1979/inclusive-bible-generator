@@ -12,6 +12,8 @@ class Generator:
         self.backgrounds_dir = os.path.join("assets", "backgrounds")
         self.output_dir = "output"
         os.makedirs(self.output_dir, exist_ok=True)
+        self._bg_cache = {}
+        self._font_cache = {}
 
     def load_locales(self):
         locales_dir = "locales"
@@ -94,34 +96,39 @@ class Generator:
             if not os.path.exists(bg_path):
                 bg_path = os.path.join(self.backgrounds_dir, "default.png")
 
-        try:
-            img = Image.open(bg_path).convert("RGBA")
-        except Exception:
-            img = Image.new('RGBA', (target_width, target_height), color=(73, 109, 137, 255))
+        bg_cache_key = (bg_path, target_width, target_height)
+        if bg_cache_key in self._bg_cache:
+            img = self._bg_cache[bg_cache_key].copy()
+        else:
+            try:
+                img = Image.open(bg_path).convert("RGBA")
+            except Exception:
+                img = Image.new('RGBA', (target_width, target_height), color=(73, 109, 137, 255))
 
-        # Center crop and resize
-        img_w, img_h = img.size
-        img_ratio = img_w / img_h
-        target_ratio = target_width / target_height
+            # Center crop and resize
+            img_w, img_h = img.size
+            img_ratio = img_w / img_h
+            target_ratio = target_width / target_height
 
-        if img_ratio > target_ratio:
-            # Image is wider than target ratio
-            new_w = int(img_h * target_ratio)
-            left = int((img_w - new_w) / 2)
-            right = left + new_w
-            img = img.crop((left, 0, right, img_h))
-        elif img_ratio < target_ratio:
-            # Image is taller than target ratio
-            new_h = int(img_w / target_ratio)
-            top = int((img_h - new_h) / 2)
-            bottom = top + new_h
-            img = img.crop((0, top, img_w, bottom))
+            if img_ratio > target_ratio:
+                # Image is wider than target ratio
+                new_w = int(img_h * target_ratio)
+                left = int((img_w - new_w) / 2)
+                right = left + new_w
+                img = img.crop((left, 0, right, img_h))
+            elif img_ratio < target_ratio:
+                # Image is taller than target ratio
+                new_h = int(img_w / target_ratio)
+                top = int((img_h - new_h) / 2)
+                bottom = top + new_h
+                img = img.crop((0, top, img_w, bottom))
 
-        img = img.resize((target_width, target_height))
+            img = img.resize((target_width, target_height))
 
-        # Add dark overlay
-        overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
-        img = Image.alpha_composite(img, overlay)
+            # Add dark overlay
+            overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
+            img = Image.alpha_composite(img, overlay)
+            self._bg_cache[bg_cache_key] = img.copy()
 
         draw = ImageDraw.Draw(img)
 
@@ -135,18 +142,24 @@ class Generator:
 
         # Load font
         font_path = os.path.join(self.fonts_dir, font_type)
-        try:
-            font_large = ImageFont.truetype(font_path, int(font_size))
-            font_small = ImageFont.truetype(font_path, int(font_size * 0.66))
-        except IOError:
-            # Fallback
-            default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
+
+        font_cache_key = (font_path, font_size)
+        if font_cache_key in self._font_cache:
+            font_large, font_small = self._font_cache[font_cache_key]
+        else:
             try:
-                font_large = ImageFont.truetype(default_font_path, int(font_size))
-                font_small = ImageFont.truetype(default_font_path, int(font_size * 0.66))
+                font_large = ImageFont.truetype(font_path, int(font_size))
+                font_small = ImageFont.truetype(font_path, int(font_size * 0.66))
             except IOError:
-                font_large = ImageFont.load_default()
-                font_small = ImageFont.load_default()
+                # Fallback
+                default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
+                try:
+                    font_large = ImageFont.truetype(default_font_path, int(font_size))
+                    font_small = ImageFont.truetype(default_font_path, int(font_size * 0.66))
+                except IOError:
+                    font_large = ImageFont.load_default()
+                    font_small = ImageFont.load_default()
+            self._font_cache[font_cache_key] = (font_large, font_small)
 
         # Simple text wrapping
         max_width = int(target_width * 0.85) # dynamic max width
