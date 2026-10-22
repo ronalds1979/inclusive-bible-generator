@@ -54,7 +54,23 @@ class Generator:
 
         voice = voices[lang_code].get(gender, voices[lang_code]["Female"])
 
-        text_to_read = f"{reference}. {verse}"
+        # Format the reference to avoid reading "3:16" as "3 hours and 16 minutes"
+        import re
+        audio_ref = reference
+        match = re.match(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)", reference.strip())
+        if match:
+            book = match.group(1).strip()
+            chapter = match.group(2)
+            v = match.group(3)
+
+            if lang_code == "pt-BR":
+                audio_ref = f"{book}, capítulo {chapter}, versículo {v}"
+            elif lang_code == "es":
+                audio_ref = f"{book}, capítulo {chapter}, versículo {v}"
+            else: # en
+                audio_ref = f"{book}, chapter {chapter}, verse {v}"
+
+        text_to_read = f"{audio_ref}. \n{verse}"
 
         if custom_output_path:
             output_path = custom_output_path
@@ -64,7 +80,8 @@ class Generator:
             output_path = os.path.join(self.output_dir, filename)
 
         async def _generate():
-            communicate = edge_tts.Communicate(text_to_read, voice)
+            # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
+            communicate = edge_tts.Communicate(text_to_read, voice, rate="-15%")
             await communicate.save(output_path)
 
         asyncio.run(_generate())
