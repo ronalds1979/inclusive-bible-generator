@@ -46,31 +46,23 @@ class App(ctk.CTk):
         self.instructions_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", justify="left")
         self.instructions_label.grid(row=1, column=0, columnspan=2, pady=(0, 10), sticky="w")
 
-        # YouVersion API Auth / Fetch
+        # Bible API Fetch
         self.api_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
         self.api_frame.grid(row=2, column=0, columnspan=2, pady=(10, 10), sticky="ew")
-        self.api_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        self.api_key_label = ctk.CTkLabel(self.api_frame, text="Chave API YouVersion (Opcional):")
-        self.api_key_label.grid(row=0, column=0, pady=(0, 5), sticky="w")
-
-        self.api_key_var = ctk.StringVar()
-        self.api_key_entry = ctk.CTkEntry(self.api_frame, textvariable=self.api_key_var, show="*")
-        self.api_key_entry.grid(row=1, column=0, padx=(0, 5), sticky="ew")
-        self.api_key_entry.bind("<FocusOut>", self.load_bible_versions)
+        self.api_frame.grid_columnconfigure((0, 1), weight=1)
 
         self.bible_version_label = ctk.CTkLabel(self.api_frame, text="Versão:")
-        self.bible_version_label.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="w")
+        self.bible_version_label.grid(row=0, column=0, pady=(0, 5), padx=(0, 5), sticky="w")
 
         self.bible_version_var = ctk.StringVar()
         self.bible_version_dropdown = ctk.CTkOptionMenu(
             self.api_frame, values=["-"], variable=self.bible_version_var
         )
-        self.bible_version_dropdown.grid(row=1, column=1, padx=5, sticky="ew")
+        self.bible_version_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
         self.bible_versions_map = {}
 
         self.fetch_btn = ctk.CTkButton(self.api_frame, text="Buscar Versículo", command=self.fetch_verse)
-        self.fetch_btn.grid(row=1, column=2, padx=(5, 0), sticky="ew")
+        self.fetch_btn.grid(row=1, column=1, padx=(5, 0), sticky="ew")
 
         # Reference Input
         self.reference_label = ctk.CTkLabel(self.left_frame, text="Referência (ex: Salmos 119:105):")
@@ -243,7 +235,6 @@ class App(ctk.CTk):
         self.instructions_label.configure(text=self.generator.get_locale_string(lang, "instructions"))
         self.verse_label.configure(text=self.generator.get_locale_string(lang, "verse_label"))
         self.reference_label.configure(text=self.generator.get_locale_string(lang, "reference_label"))
-        self.api_key_label.configure(text=self.generator.get_locale_string(lang, "api_key_label"))
         self.bible_version_label.configure(text=self.generator.get_locale_string(lang, "bible_version_label"))
         self.fetch_btn.configure(text=self.generator.get_locale_string(lang, "fetch_verse_btn"))
         self.generate_btn.configure(text=self.generator.get_locale_string(lang, "generate_btn"))
@@ -291,10 +282,6 @@ class App(ctk.CTk):
         self.status_label.configure(text="")
 
     def load_bible_versions(self, event=None):
-        api_key = self.api_key_var.get().strip()
-        if not api_key:
-            return
-
         import threading
 
         def _fetch():
@@ -304,7 +291,8 @@ class App(ctk.CTk):
             if "en" in self.get_lang_key(): lang_code = "en"
             elif "es" in self.get_lang_key(): lang_code = "es"
 
-            versions = YouVersionAPI.get_versions(api_key, lang=lang_code)
+            # App key is ignored now as we use bible-api.com
+            versions = YouVersionAPI.get_versions(lang=lang_code)
 
             if versions:
                 self.bible_versions_map = {v["name"]: v["id"] for v in versions}
@@ -326,12 +314,11 @@ class App(ctk.CTk):
         self.status_label.configure(text="Error loading versions or invalid API key.")
 
     def fetch_verse(self):
-        api_key = self.api_key_var.get().strip()
         version_name = self.bible_version_var.get()
         reference = self.reference_input.get().strip()
 
-        if not api_key or version_name == "-" or not reference:
-            self.status_label.configure(text="Please provide API Key, Version, and Reference.")
+        if version_name == "-" or not reference:
+            self.status_label.configure(text="Please provide Version, and Reference.")
             return
 
         bible_id = self.bible_versions_map.get(version_name)
@@ -343,7 +330,7 @@ class App(ctk.CTk):
         def _fetch():
             self.after(0, lambda: self.status_label.configure(text="Fetching verse..."))
 
-            content = YouVersionAPI.get_passage(api_key, bible_id, reference)
+            content = YouVersionAPI.get_passage(None, bible_id, reference)
             self.after(0, lambda: self._update_verse_ui(content))
 
         threading.Thread(target=_fetch, daemon=True).start()
