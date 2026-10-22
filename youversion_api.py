@@ -1,4 +1,5 @@
 import requests
+import urllib.parse
 
 class YouVersionAPI:
     # Switching to bible-api.com since YouVersion API keys are problematic
@@ -32,9 +33,11 @@ class YouVersionAPI:
 
     @staticmethod
     def get_passage(app_key, bible_id, reference):
-        url = f"{YouVersionAPI.BASE_URL}/{reference}?translation={bible_id}"
+        safe_reference = urllib.parse.quote(reference)
+        safe_bible_id = urllib.parse.quote(bible_id)
+        url = f"{YouVersionAPI.BASE_URL}/{safe_reference}?translation={safe_bible_id}"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
             return data.get("text", "").strip()
