@@ -194,10 +194,10 @@ class App(ctk.CTk):
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
         self.buttons_frame.grid(row=14, column=0, columnspan=2, pady=10)
 
-        self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt)
+        self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt, state="disabled")
         self.copy_alt_btn.grid(row=0, column=0, padx=10)
 
-        self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption)
+        self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption, state="disabled")
         self.copy_caption_btn.grid(row=0, column=1, padx=10)
 
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
@@ -482,6 +482,10 @@ class App(ctk.CTk):
         cap_label = self.generator.get_locale_string(lang, "caption_label")
         display_text = f"--- {alt_label} ---\n{self.alt_text}\n\n--- {cap_label} ---\n{self.caption}"
         self.output_textbox.insert("1.0", display_text)
+
+        # Enable copy buttons
+        self.copy_alt_btn.configure(state="normal")
+        self.copy_caption_btn.configure(state="normal")
 
         # Status Label
         msg = self.generator.get_locale_string(lang, "success_msg")
