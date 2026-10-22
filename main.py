@@ -216,6 +216,7 @@ class App(ctk.CTk):
 
         # Initial UI Update
         self.update_ui_texts()
+        self.load_bible_versions()
 
     def get_lang_key(self):
         lang = self.current_lang
