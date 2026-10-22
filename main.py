@@ -123,9 +123,25 @@ class App(ctk.CTk):
         self.font_color_label.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="w")
 
         self.font_color_var = ctk.StringVar(value="#FFFFFF")
-        self.font_color_entry = ctk.CTkEntry(self.font_config_frame, textvariable=self.font_color_var)
-        self.font_color_entry.grid(row=1, column=1, padx=5, sticky="ew")
+
+        # Color selector UI with option for Custom
+        self.color_selector_frame = ctk.CTkFrame(self.font_config_frame, fg_color="transparent")
+        self.color_selector_frame.grid(row=1, column=1, padx=5, sticky="ew")
+        self.color_selector_frame.grid_columnconfigure((0, 1), weight=1)
+
+        self.font_color_dropdown = ctk.CTkOptionMenu(
+            self.color_selector_frame,
+            values=["#FFFFFF", "#000000", "#FFD700", "#FF0000", "Custom..."],
+            command=self.on_color_selected
+        )
+        self.font_color_dropdown.grid(row=0, column=0, sticky="ew")
+
+        self.font_color_entry = ctk.CTkEntry(self.color_selector_frame, textvariable=self.font_color_var, width=80)
+        self.font_color_entry.grid(row=0, column=1, padx=(5, 0), sticky="ew")
         self.font_color_entry.bind("<KeyRelease>", self.trigger_preview)
+
+        # Initially hide the custom entry box, only show when Custom... is selected
+        self.font_color_entry.grid_remove()
 
         self.font_size_label = ctk.CTkLabel(self.font_config_frame, text="Tamanho da Fonte:")
         self.font_size_label.grid(row=0, column=2, pady=(0, 5), padx=(5, 0), sticky="w")
@@ -349,6 +365,14 @@ class App(ctk.CTk):
         if hasattr(self, '_preview_after_id'):
             self.after_cancel(self._preview_after_id)
         self._preview_after_id = self.after(500, self.preview_content)
+
+    def on_color_selected(self, choice):
+        if choice == "Custom...":
+            self.font_color_entry.grid()
+        else:
+            self.font_color_var.set(choice)
+            self.font_color_entry.grid_remove()
+            self.trigger_preview()
 
     def clear_custom_image(self, _choice):
         self.custom_image_path = None
