@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from generator import Generator
-from youversion_api import YouVersionAPI
+from getbible_api import GetBibleAPI
 import pyperclip
 import os
 
@@ -309,7 +309,7 @@ class App(ctk.CTk):
             elif "es" in self.get_lang_key(): lang_code = "es"
 
             # App key is ignored now as we use bible-api.com
-            versions = YouVersionAPI.get_versions(lang=lang_code)
+            versions = GetBibleAPI.get_versions(lang=lang_code)
 
             if versions:
                 self.bible_versions_map = {v["name"]: v["id"] for v in versions}
@@ -347,7 +347,7 @@ class App(ctk.CTk):
         def _fetch():
             self.after(0, lambda: self.status_label.configure(text="Fetching verse..."))
 
-            content = YouVersionAPI.get_passage(None, bible_id, reference)
+            content = GetBibleAPI.get_passage(bible_id, reference, self.current_lang)
             self.after(0, lambda: self._update_verse_ui(content))
 
         threading.Thread(target=_fetch, daemon=True).start()
