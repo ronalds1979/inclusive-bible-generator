@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import edge_tts
+import functools
 from PIL import Image, ImageDraw, ImageFont
 
 class Generator:
@@ -87,30 +88,9 @@ class Generator:
         asyncio.run(_generate())
         return output_path
 
-    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0):
-        lang_code = "pt"
-        if "English" in lang:
-            lang_code = "en"
-        elif "Español" in lang:
-            lang_code = "es"
-
-        target_width = 1080
-        target_height = 1080
-
-        if aspect_ratio == "3:4":
-            target_width = 1080
-            target_height = 1440
-        elif aspect_ratio == "4:3":
-            target_width = 1440
-            target_height = 1080
-
-        if custom_image_path and os.path.exists(custom_image_path):
-            bg_path = custom_image_path
-        else:
-            bg_path = os.path.join(self.backgrounds_dir, background_filename)
-            if not os.path.exists(bg_path):
-                bg_path = os.path.join(self.backgrounds_dir, "default.png")
-
+    # Cache base background image and crop operations to prevent redundant I/O and processing during live preview
+    @functools.lru_cache(maxsize=10)
+    def _get_base_image(self, bg_path, target_width, target_height):
         try:
             img = Image.open(bg_path).convert("RGBA")
         except Exception:
@@ -140,6 +120,46 @@ class Generator:
         overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
         img = Image.alpha_composite(img, overlay)
 
+        return img
+
+    # Cache font loading to avoid repeated disk reads when text dynamically wraps
+    @functools.lru_cache(maxsize=32)
+    def _get_font(self, font_path, size):
+        try:
+            return ImageFont.truetype(font_path, size)
+        except IOError:
+            try:
+                default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
+                return ImageFont.truetype(default_font_path, size)
+            except IOError:
+                return ImageFont.load_default()
+
+    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0):
+        lang_code = "pt"
+        if "English" in lang:
+            lang_code = "en"
+        elif "Español" in lang:
+            lang_code = "es"
+
+        target_width = 1080
+        target_height = 1080
+
+        if aspect_ratio == "3:4":
+            target_width = 1080
+            target_height = 1440
+        elif aspect_ratio == "4:3":
+            target_width = 1440
+            target_height = 1080
+
+        if custom_image_path and os.path.exists(custom_image_path):
+            bg_path = custom_image_path
+        else:
+            bg_path = os.path.join(self.backgrounds_dir, background_filename)
+            if not os.path.exists(bg_path):
+                bg_path = os.path.join(self.backgrounds_dir, "default.png")
+
+        img = self._get_base_image(bg_path, target_width, target_height).copy()
+
         draw = ImageDraw.Draw(img)
 
         # Convert hex color to RGBA
@@ -152,18 +172,8 @@ class Generator:
 
         # Load font
         font_path = os.path.join(self.fonts_dir, font_type)
-        try:
-            font_large = ImageFont.truetype(font_path, int(font_size))
-            font_small = ImageFont.truetype(font_path, int(font_size * 0.66))
-        except IOError:
-            # Fallback
-            default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
-            try:
-                font_large = ImageFont.truetype(default_font_path, int(font_size))
-                font_small = ImageFont.truetype(default_font_path, int(font_size * 0.66))
-            except IOError:
-                font_large = ImageFont.load_default()
-                font_small = ImageFont.load_default()
+        font_large = self._get_font(font_path, int(font_size))
+        font_small = self._get_font(font_path, int(font_size * 0.66))
 
         # Simple text wrapping
         max_width = int(target_width * 0.85) # dynamic max width
