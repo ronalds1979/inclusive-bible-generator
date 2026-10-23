@@ -75,7 +75,9 @@ class Generator:
         if custom_output_path:
             output_path = custom_output_path
         else:
-            safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+            # 🛡️ Sentinel: Sanitize reference to prevent path traversal
+            import re
+            safe_ref = re.sub(r'[^\w\-]', '_', reference.lower())
             filename = f"{safe_ref}_{lang_code}.mp3"
             output_path = os.path.join(self.output_dir, filename)
 
