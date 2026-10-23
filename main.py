@@ -131,7 +131,7 @@ class App(ctk.CTk):
 
         self.font_color_dropdown = ctk.CTkOptionMenu(
             self.color_selector_frame,
-            values=["#FFFFFF", "#000000", "#FFD700", "#FF0000", "Custom..."],
+            values=["Branco", "Preto", "Dourado", "Vermelho", "Personalizado..."],
             command=self.on_color_selected
         )
         self.font_color_dropdown.grid(row=0, column=0, sticky="ew")
@@ -155,7 +155,9 @@ class App(ctk.CTk):
         self.bottom_config_frame.grid(row=10, column=0, columnspan=2, pady=(10, 20), sticky="ew")
         self.bottom_config_frame.grid_columnconfigure((0, 1), weight=1)
 
+
         self.aspect_ratio_label = ctk.CTkLabel(self.bottom_config_frame, text="Proporção da Imagem:")
+
         self.aspect_ratio_label.grid(row=0, column=0, pady=(0, 5), sticky="w")
 
         self.aspect_ratio_var = ctk.StringVar(value="1:1")
@@ -256,6 +258,7 @@ class App(ctk.CTk):
         self.fetch_btn.configure(text=self.generator.get_locale_string(lang, "fetch_verse_btn"))
         self.generate_btn.configure(text=self.generator.get_locale_string(lang, "generate_btn"))
 
+
         self.aspect_ratio_label.configure(text=self.generator.get_locale_string(lang, "aspect_ratio_label"))
         self.aspect_ratio_dropdown.configure(values=[
             self.generator.get_locale_string(lang, "ratio_square"),
@@ -276,6 +279,27 @@ class App(ctk.CTk):
         self.custom_image_btn.configure(text=self.generator.get_locale_string(lang, "custom_image_btn"))
 
         self.font_type_label.configure(text=self.generator.get_locale_string(lang, "font_type_label"))
+
+        self.font_color_dropdown.configure(values=[
+            self.generator.get_locale_string(lang, "color_white"),
+            self.generator.get_locale_string(lang, "color_black"),
+            self.generator.get_locale_string(lang, "color_gold"),
+            self.generator.get_locale_string(lang, "color_red"),
+            self.generator.get_locale_string(lang, "color_custom")
+        ])
+
+        # Keep selected color in sync with new language
+        current_color = self.font_color_var.get()
+        if current_color == "#FFFFFF":
+            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_white"))
+        elif current_color == "#000000":
+            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_black"))
+        elif current_color == "#FFD700":
+            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_gold"))
+        elif current_color == "#FF0000":
+            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_red"))
+        else:
+            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_custom"))
         self.font_color_label.configure(text=self.generator.get_locale_string(lang, "font_color_label"))
         self.font_size_label.configure(text=self.generator.get_locale_string(lang, "font_size_label"))
         self.y_offset_label.configure(text=self.generator.get_locale_string(lang, "y_offset_label"))
@@ -347,7 +371,7 @@ class App(ctk.CTk):
         def _fetch():
             self.after(0, lambda: self.status_label.configure(text="Fetching verse..."))
 
-            content = GetBibleAPI.get_passage(bible_id, reference, self.current_lang)
+            content = GetBibleAPI.get_passage(bible_id, reference, self.get_lang_key())
             self.after(0, lambda: self._update_verse_ui(content))
 
         threading.Thread(target=_fetch, daemon=True).start()
@@ -367,10 +391,20 @@ class App(ctk.CTk):
         self._preview_after_id = self.after(500, self.preview_content)
 
     def on_color_selected(self, choice):
-        if choice == "Custom...":
+        lang = self.get_lang_key()
+        custom_label = self.generator.get_locale_string(lang, "color_custom")
+
+        if choice == custom_label:
             self.font_color_entry.grid()
         else:
-            self.font_color_var.set(choice)
+            color_map = {
+                self.generator.get_locale_string(lang, "color_white"): "#FFFFFF",
+                self.generator.get_locale_string(lang, "color_black"): "#000000",
+                self.generator.get_locale_string(lang, "color_gold"): "#FFD700",
+                self.generator.get_locale_string(lang, "color_red"): "#FF0000"
+            }
+            hex_color = color_map.get(choice, "#FFFFFF")
+            self.font_color_var.set(hex_color)
             self.font_color_entry.grid_remove()
             self.trigger_preview()
 

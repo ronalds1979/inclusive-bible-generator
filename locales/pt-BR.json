@@ -32,5 +32,10 @@
   "caption_template": "📖 {reference}\n\n\"{verse}\"\n\n#Acessibilidade #Inclusao #PalavraDeDeus",
   "success_msg": "Gerado com sucesso!",
   "copy_success_msg": "Copiado para a área de transferência!",
-  "save_success_msg": "Imagem salva em {path}"
+  "save_success_msg": "Imagem salva em {path}",
+  "color_white": "Branco",
+  "color_black": "Preto",
+  "color_gold": "Dourado",
+  "color_red": "Vermelho",
+  "color_custom": "Personalizado..."
 }

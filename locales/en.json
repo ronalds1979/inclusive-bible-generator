@@ -32,5 +32,10 @@
   "caption_template": "📖 {reference}\n\n\"{verse}\"\n\n#Accessibility #Inclusion #BibleVerses",
   "success_msg": "Successfully generated!",
   "copy_success_msg": "Copied to clipboard!",
-  "save_success_msg": "Image saved to {path}"
+  "save_success_msg": "Image saved to {path}",
+  "color_white": "White",
+  "color_black": "Black",
+  "color_gold": "Gold",
+  "color_red": "Red",
+  "color_custom": "Custom..."
 }
