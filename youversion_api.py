@@ -32,7 +32,10 @@ class YouVersionAPI:
 
     @staticmethod
     def get_passage(app_key, bible_id, reference):
-        url = f"{YouVersionAPI.BASE_URL}/{reference}?translation={bible_id}"
+        import urllib.parse
+        # 🛡️ Sentinel: Sanitize reference to prevent URL injection/SSRF
+        safe_ref = urllib.parse.quote(reference)
+        url = f"{YouVersionAPI.BASE_URL}/{safe_ref}?translation={bible_id}"
         try:
             response = requests.get(url)
             response.raise_for_status()
