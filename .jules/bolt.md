@@ -1,0 +1,3 @@
+## 2024-05-24 - Cached Image Loading in CustomTkinter UI
+**Learning:** During real-time visual previews (e.g. key press event bindings triggering re-renders), Pillow performs expensive disk I/O, scaling, and overlaying repeatedly. When using `@functools.lru_cache` to cache these base images and avoid redundant work, any mutable cached objects like `PIL.Image` MUST be explicitly duplicated using `.copy()` before the app draws text or modifies the image; otherwise, modifications corrupt the cached base image.
+**Action:** Use `lru_cache` for static operations (like loading base background images and fonts) to avoid disk I/O, but always call `.copy()` on cached mutable objects before applying instance-specific mutations (like `ImageDraw`).
