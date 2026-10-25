@@ -1,0 +1,3 @@
+## 2024-05-18 - Improve customtkinter Interaction States
+**Learning:** In customtkinter, explicitly defining empty and loading states using `state="disabled"` helps maintain context and avoid confusion during background operations or unready states. Additionally, directly mutating button text (e.g. adding `"✓ "`) with an accompanying `widget.after()` callback to revert it provides clear temporary visual feedback for successful inline actions.
+**Action:** Always proactively review interactions for potential empty or disabled states and implement contextual loading disabled states combined with immediate UI success feedback to improve usability.

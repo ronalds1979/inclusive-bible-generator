@@ -212,10 +212,10 @@ class App(ctk.CTk):
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
         self.buttons_frame.grid(row=14, column=0, columnspan=2, pady=10)
 
-        self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt)
+        self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt, state="disabled")
         self.copy_alt_btn.grid(row=0, column=0, padx=10)
 
-        self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption)
+        self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption, state="disabled")
         self.copy_caption_btn.grid(row=0, column=1, padx=10)
 
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
@@ -374,9 +374,11 @@ class App(ctk.CTk):
             content = GetBibleAPI.get_passage(bible_id, reference, self.get_lang_key())
             self.after(0, lambda: self._update_verse_ui(content))
 
+        self.fetch_btn.configure(state="disabled")
         threading.Thread(target=_fetch, daemon=True).start()
 
     def _update_verse_ui(self, content):
+        self.fetch_btn.configure(state="normal")
         if content:
             self.verse_input.delete("1.0", "end")
             self.verse_input.insert("1.0", content)
@@ -531,9 +533,13 @@ class App(ctk.CTk):
 
             self.after(0, self._on_generate_complete, lang, audio_msg)
 
+        self.generate_btn.configure(state="disabled")
         threading.Thread(target=_process, daemon=True).start()
 
     def _on_generate_complete(self, lang, audio_msg):
+        self.generate_btn.configure(state="normal")
+        self.copy_alt_btn.configure(state="normal")
+        self.copy_caption_btn.configure(state="normal")
         # Update Textbox
         self.output_textbox.delete("1.0", "end")
         alt_label = self.generator.get_locale_string(lang, "alt_text_label")
@@ -550,12 +556,18 @@ class App(ctk.CTk):
             pyperclip.copy(self.alt_text)
             lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"))
+            original_text = self.copy_alt_btn.cget("text")
+            self.copy_alt_btn.configure(text="✓ " + original_text)
+            self.after(2000, lambda: self.copy_alt_btn.configure(text=original_text))
 
     def copy_caption(self):
         if self.caption:
             pyperclip.copy(self.caption)
             lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"))
+            original_text = self.copy_caption_btn.cget("text")
+            self.copy_caption_btn.configure(text="✓ " + original_text)
+            self.after(2000, lambda: self.copy_caption_btn.configure(text=original_text))
 
 if __name__ == "__main__":
     app = App()
