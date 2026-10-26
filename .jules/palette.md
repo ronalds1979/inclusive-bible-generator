@@ -1,0 +1,3 @@
+## 2024-05-24 - Async State & Feedback in customtkinter
+**Learning:** In `customtkinter`, a reliable way to indicate success without separate notifications is to temporarily update the button's text (e.g., prepending '✓ ') using `button.configure(text=...)` and then reverting it after a delay using `self.after(2000, ...)`. Also, during long-running threading operations, it is critical to set button states to `"disabled"` before spawning the thread and restore to `"normal"` within a UI-bound callback like `self.after(0, ...)` to prevent duplicate actions or UI locking.
+**Action:** Always implement this `configure` + `after` pattern for copy operations and manage async buttons to maintain UI responsiveness and feedback without relying on external notification libraries.
