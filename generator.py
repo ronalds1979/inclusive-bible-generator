@@ -1,8 +1,17 @@
 import os
 import json
 import asyncio
+import functools
 import edge_tts
 from PIL import Image, ImageDraw, ImageFont
+
+@functools.lru_cache(maxsize=16)
+def _get_cached_image(path):
+    return Image.open(path).convert("RGBA")
+
+@functools.lru_cache(maxsize=32)
+def _get_cached_font(path, size):
+    return ImageFont.truetype(path, size)
 
 class Generator:
     def __init__(self):
@@ -112,7 +121,7 @@ class Generator:
                 bg_path = os.path.join(self.backgrounds_dir, "default.png")
 
         try:
-            img = Image.open(bg_path).convert("RGBA")
+            img = _get_cached_image(bg_path).copy()
         except Exception:
             img = Image.new('RGBA', (target_width, target_height), color=(73, 109, 137, 255))
 
@@ -153,14 +162,14 @@ class Generator:
         # Load font
         font_path = os.path.join(self.fonts_dir, font_type)
         try:
-            font_large = ImageFont.truetype(font_path, int(font_size))
-            font_small = ImageFont.truetype(font_path, int(font_size * 0.66))
+            font_large = _get_cached_font(font_path, int(font_size))
+            font_small = _get_cached_font(font_path, int(font_size * 0.66))
         except IOError:
             # Fallback
             default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
             try:
-                font_large = ImageFont.truetype(default_font_path, int(font_size))
-                font_small = ImageFont.truetype(default_font_path, int(font_size * 0.66))
+                font_large = _get_cached_font(default_font_path, int(font_size))
+                font_small = _get_cached_font(default_font_path, int(font_size * 0.66))
             except IOError:
                 font_large = ImageFont.load_default()
                 font_small = ImageFont.load_default()
