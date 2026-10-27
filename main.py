@@ -1,3 +1,7 @@
+import threading
+from tkinter import filedialog
+from PIL import Image
+
 import customtkinter as ctk
 from generator import Generator
 from getbible_api import GetBibleAPI
@@ -323,8 +327,6 @@ class App(ctk.CTk):
         self.status_label.configure(text="")
 
     def load_bible_versions(self, event=None):
-        import threading
-
         def _fetch():
             self.after(0, lambda: self.status_label.configure(text="Loading Bible versions..."))
 
@@ -367,8 +369,6 @@ class App(ctk.CTk):
             return
 
         self.fetch_btn.configure(state="disabled")
-
-        import threading
 
         def _fetch():
             self.after(0, lambda: self.status_label.configure(text="Fetching verse..."))
@@ -415,7 +415,6 @@ class App(ctk.CTk):
         self.custom_image_path = None
 
     def select_custom_image(self):
-        from tkinter import filedialog
         file_path = filedialog.askopenfilename(
             title=self.generator.get_locale_string(self.get_lang_key(), "custom_image_btn"),
             filetypes=[("Image files", "*.png *.jpg *.jpeg"), ("All files", "*.*")]
@@ -457,7 +456,6 @@ class App(ctk.CTk):
             )
 
             preview_max_size = (500, 500)
-            from PIL import Image
             pil_img.thumbnail(preview_max_size, Image.Resampling.LANCZOS)
 
             ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
@@ -476,7 +474,6 @@ class App(ctk.CTk):
         if "en" in lang: lang_code = "en"
         elif "es" in lang: lang_code = "es"
 
-        from tkinter import filedialog
         safe_ref = reference.lower().replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")
         default_image_filename = f"{safe_ref}_{lang_code}.png"
         default_audio_filename = f"{safe_ref}_{lang_code}.mp3"
@@ -506,8 +503,6 @@ class App(ctk.CTk):
         self.status_label.configure(text="Gerando arquivos...")
         self.generate_btn.configure(state="disabled")
         self.update()
-
-        import threading
 
         def _process():
             # Generate Image to Disk
