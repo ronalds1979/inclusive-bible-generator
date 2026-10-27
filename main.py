@@ -477,7 +477,7 @@ class App(ctk.CTk):
         elif "es" in lang: lang_code = "es"
 
         from tkinter import filedialog
-        safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+        safe_ref = reference.lower().replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")
         default_image_filename = f"{safe_ref}_{lang_code}.png"
         default_audio_filename = f"{safe_ref}_{lang_code}.mp3"
 

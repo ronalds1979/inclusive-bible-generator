@@ -77,7 +77,7 @@ class Generator:
         if custom_output_path:
             output_path = custom_output_path
         else:
-            safe_ref = reference.lower().replace(" ", "_").replace(":", "_")
+            safe_ref = reference.lower().replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")
             filename = f"{safe_ref}_{lang_code}.mp3"
             output_path = os.path.join(self.output_dir, filename)
 
