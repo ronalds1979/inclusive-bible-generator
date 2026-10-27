@@ -366,6 +366,8 @@ class App(ctk.CTk):
         if not bible_id:
             return
 
+        self.fetch_btn.configure(state="disabled")
+
         import threading
 
         def _fetch():
@@ -377,6 +379,7 @@ class App(ctk.CTk):
         threading.Thread(target=_fetch, daemon=True).start()
 
     def _update_verse_ui(self, content):
+        self.fetch_btn.configure(state="normal")
         if content:
             self.verse_input.delete("1.0", "end")
             self.verse_input.insert("1.0", content)
@@ -501,6 +504,7 @@ class App(ctk.CTk):
                 return
 
         self.status_label.configure(text="Gerando arquivos...")
+        self.generate_btn.configure(state="disabled")
         self.update()
 
         import threading
@@ -534,6 +538,7 @@ class App(ctk.CTk):
         threading.Thread(target=_process, daemon=True).start()
 
     def _on_generate_complete(self, lang, audio_msg):
+        self.generate_btn.configure(state="normal")
         # Update Textbox
         self.output_textbox.delete("1.0", "end")
         alt_label = self.generator.get_locale_string(lang, "alt_text_label")
@@ -554,12 +559,18 @@ class App(ctk.CTk):
             pyperclip.copy(self.alt_text)
             lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"))
+            original_text = self.generator.get_locale_string(lang, "copy_alt_text_btn")
+            self.copy_alt_btn.configure(text="✓ " + original_text)
+            self.after(2000, lambda: self.copy_alt_btn.configure(text=original_text))
 
     def copy_caption(self):
         if self.caption:
             pyperclip.copy(self.caption)
             lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"))
+            original_text = self.generator.get_locale_string(lang, "copy_caption_btn")
+            self.copy_caption_btn.configure(text="✓ " + original_text)
+            self.after(2000, lambda: self.copy_caption_btn.configure(text=original_text))
 
 if __name__ == "__main__":
     app = App()
