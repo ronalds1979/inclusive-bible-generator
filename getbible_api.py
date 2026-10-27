@@ -66,7 +66,8 @@ class GetBibleAPI:
         url = f"{GetBibleAPI.BASE_URL}/{bible_id}/{book_nr}/{chapter}.json"
 
         try:
-            response = requests.get(url)
+            # 🛡️ Sentinel: Added timeout=10 to prevent DoS/thread exhaustion if API hangs
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
 
