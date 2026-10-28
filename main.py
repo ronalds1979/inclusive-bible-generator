@@ -384,6 +384,12 @@ class App(ctk.CTk):
             self.verse_input.delete("1.0", "end")
             self.verse_input.insert("1.0", content)
             self.status_label.configure(text="Verse fetched successfully.")
+
+            lang = self.get_lang_key()
+            original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
+            self.fetch_btn.configure(text="✓ " + original_text)
+            self.after(2000, lambda: self.fetch_btn.configure(text=original_text))
+
             self.trigger_preview()
         else:
             self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).")
@@ -548,6 +554,10 @@ class App(ctk.CTk):
         # Status Label
         msg = self.generator.get_locale_string(lang, "success_msg")
         self.status_label.configure(text=msg + audio_msg)
+
+        original_text = self.generator.get_locale_string(lang, "generate_btn")
+        self.generate_btn.configure(text="✓ " + original_text)
+        self.after(2000, lambda: self.generate_btn.configure(text=original_text))
 
     def copy_alt(self):
         if self.alt_text:
