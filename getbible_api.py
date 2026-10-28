@@ -5,6 +5,10 @@ from book_mapping import BOOK_MAPPING
 class GetBibleAPI:
     BASE_URL = "https://api.getbible.net/v2"
 
+    # ⚡ Bolt: Compiled static regex pattern at the class level to avoid repeated compilation
+    # overhead in _parse_reference when matching bible verses.
+    REFERENCE_REGEX = re.compile(r'^((?:\d\s+)?[a-zA-ZáéíóúãõçñÁÉÍÓÚÃÕÇÑ\s]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$')
+
     @staticmethod
     def get_versions(lang="en"):
         try:
@@ -39,7 +43,7 @@ class GetBibleAPI:
         lang_prefix = lang[:2].lower()
         mapping = BOOK_MAPPING.get(lang_prefix, BOOK_MAPPING["en"])
 
-        match = re.match(r'^((?:\d\s+)?[a-zA-ZáéíóúãõçñÁÉÍÓÚÃÕÇÑ\s]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$', reference.strip())
+        match = GetBibleAPI.REFERENCE_REGEX.match(reference.strip())
         if not match:
             return None, None, None, None
 
