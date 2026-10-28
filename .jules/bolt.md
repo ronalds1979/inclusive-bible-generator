@@ -4,3 +4,4 @@
 ## 2023-10-28 - [getbible_api.py] Cache full chapter payload for verse lookups
 **Learning:** The `api.getbible.net/v2` API returns the payload for an entire chapter even when we are requesting specific verses from it. Doing sequential requests for verses from the same chapter incurs significant redundant network overhead.
 **Action:** When working with chapter-based APIs, cache the entire chapter payload in memory (e.g. using `functools.lru_cache`) instead of re-fetching per verse request.
+⚡ Optimized uncached regex compilation in _parse_reference by pre-compiling regex pattern at class-level

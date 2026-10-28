@@ -5,6 +5,7 @@ from book_mapping import BOOK_MAPPING
 
 class GetBibleAPI:
     BASE_URL = "https://api.getbible.net/v2"
+    _REFERENCE_PATTERN = re.compile(r'^((?:\d\s+)?[a-zA-ZáéíóúãõçñÁÉÍÓÚÃÕÇÑ\s]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$')
 
     @staticmethod
     def get_versions(lang="en"):
@@ -43,7 +44,7 @@ class GetBibleAPI:
         lang_prefix = lang[:2].lower()
         mapping = BOOK_MAPPING.get(lang_prefix, BOOK_MAPPING["en"])
 
-        match = re.match(r'^((?:\d\s+)?[a-zA-ZáéíóúãõçñÁÉÍÓÚÃÕÇÑ\s]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$', reference.strip())
+        match = GetBibleAPI._REFERENCE_PATTERN.match(reference.strip())
         if not match:
             return None, None, None, None
 
