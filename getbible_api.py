@@ -37,6 +37,9 @@ class GetBibleAPI:
 
     @staticmethod
     def _parse_reference(reference, lang="en"):
+        if not reference or len(reference) > 100:
+            return None, None, None, None
+
         lang_prefix = lang[:2].lower()
         mapping = BOOK_MAPPING.get(lang_prefix, BOOK_MAPPING["en"])
 
