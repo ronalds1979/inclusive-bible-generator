@@ -59,7 +59,11 @@ class Generator:
         # Format the reference to avoid reading "3:16" as "3 hours and 16 minutes"
         import re
         audio_ref = reference
-        match = re.match(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)", reference.strip())
+
+        match = None
+        if reference and len(reference) <= 100:
+            match = re.match(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)", reference.strip())
+
         if match:
             book = match.group(1).strip()
             chapter = match.group(2)
