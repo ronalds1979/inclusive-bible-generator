@@ -12,3 +12,7 @@
 **Vulnerability:** The application parsed user-supplied bible reference strings using unbounded regex patterns containing overlapping quantifier sets (`+?` followed by `\s+`), making it vulnerable to Regular Expression Denial of Service (ReDoS). Extremely long inputs without matches caused catastrophic backtracking and thread starvation.
 **Learning:** Even with safe regex structures, complex parses on completely unrestricted user input length can cause severe performance issues or Denial of Service conditions.
 **Prevention:** In addition to writing optimal regex, always validate and limit the length of arbitrary user input strings (e.g., `if len(input) > max_allowed_length: return`) before processing them with regular expressions.
+## 2025-02-14 - Prevent Path Traversal in Asset Loading
+**Vulnerability:** Path traversal possible when dynamically loading background images (`background_filename`) and fonts (`font_type`) due to missing input sanitization before joining with directory paths in `generator.py`.
+**Learning:** `os.path.join` does not sanitize inputs natively. If an attacker provides a path like `../../etc/passwd` or an absolute path (e.g. `/etc/passwd`), `os.path.join` could resolve to paths outside the intended directory.
+**Prevention:** Always use `os.path.basename()` to strip out any path information when dealing with user-supplied filenames for assets before passing them to `os.path.join()`, ensuring the file is resolved strictly within the designated asset folder.
