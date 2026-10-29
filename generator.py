@@ -113,7 +113,9 @@ class Generator:
         if custom_image_path and os.path.exists(custom_image_path):
             bg_path = custom_image_path
         else:
-            bg_path = os.path.join(self.backgrounds_dir, background_filename)
+            # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
+            safe_background_filename = os.path.basename(background_filename)
+            bg_path = os.path.join(self.backgrounds_dir, safe_background_filename)
             if not os.path.exists(bg_path):
                 bg_path = os.path.join(self.backgrounds_dir, "default.png")
 
@@ -162,7 +164,9 @@ class Generator:
             rgba_color = (255, 255, 255, 255)
 
         # Load font
-        font_path = os.path.join(self.fonts_dir, font_type)
+        # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
+        safe_font_type = os.path.basename(font_type)
+        font_path = os.path.join(self.fonts_dir, safe_font_type)
 
         font_cache_key = (font_path, font_size)
         if font_cache_key in self._font_cache:
