@@ -10,3 +10,6 @@
 ## 2024-05-18 - Use Inline Component Feedback for Primary Actions
 **Learning:** Adding temporary inline feedback (like a checkmark) directly to the main action buttons ("Generate Content", "Fetch Verse") provides a much more satisfying and reassuring UX compared to only updating a secondary global status label.
 **Action:** When implementing primary or long-running actions, apply localized temporary visual feedback on the button itself upon success to confirm completion.
+## 2024-05-19 - Semantic Status Colors (Cognitive Accessibility)
+**Learning:** Initializing generic status labels with a single color (e.g., green) causes cognitive dissonance when error or neutral messages are displayed. In customtkinter, this can be confusing to users relying on visual cues.
+**Action:** When updating a shared `CTkLabel` for status messages, always dynamically configure `text_color` (`green` for success, `red` for error, `gray` for loading/neutral) alongside the text update to maintain semantic consistency.

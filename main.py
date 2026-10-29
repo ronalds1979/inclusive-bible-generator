@@ -204,6 +204,9 @@ class App(ctk.CTk):
         self.verse_input.bind("<KeyRelease>", self.trigger_preview)
         self.reference_input.bind("<KeyRelease>", self.trigger_preview)
 
+        # Bind enter key for quick fetch
+        self.reference_input.bind("<Return>", lambda event: self.fetch_verse())
+
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
         self.output_textbox.grid(row=12, column=0, columnspan=2, pady=10, sticky="ew")
@@ -222,7 +225,7 @@ class App(ctk.CTk):
         self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption, state="disabled")
         self.copy_caption_btn.grid(row=0, column=1, padx=10)
 
-        self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="green")
+        self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray")
         self.status_label.grid(row=15, column=0, columnspan=2, pady=10)
 
         self.alt_text = ""
@@ -328,7 +331,7 @@ class App(ctk.CTk):
 
     def load_bible_versions(self, event=None):
         def _fetch():
-            self.after(0, lambda: self.status_label.configure(text="Loading Bible versions..."))
+            self.after(0, lambda: self.status_label.configure(text="Loading Bible versions...", text_color="gray"))
 
             lang_code = "pt-BR"
             if "en" in self.get_lang_key(): lang_code = "en"
@@ -354,14 +357,14 @@ class App(ctk.CTk):
     def _update_version_dropdown_error(self):
         self.bible_version_dropdown.configure(values=["-"])
         self.bible_version_var.set("-")
-        self.status_label.configure(text="Error loading versions or invalid API key.")
+        self.status_label.configure(text="Error loading versions or invalid API key.", text_color="red")
 
     def fetch_verse(self):
         version_name = self.bible_version_var.get()
         reference = self.reference_input.get().strip()
 
         if version_name == "-" or not reference:
-            self.status_label.configure(text="Please provide Version, and Reference.")
+            self.status_label.configure(text="Please provide Version, and Reference.", text_color="red")
             return
 
         bible_id = self.bible_versions_map.get(version_name)
@@ -371,7 +374,7 @@ class App(ctk.CTk):
         self.fetch_btn.configure(state="disabled")
 
         def _fetch():
-            self.after(0, lambda: self.status_label.configure(text="Fetching verse..."))
+            self.after(0, lambda: self.status_label.configure(text="Fetching verse...", text_color="gray"))
 
             content = GetBibleAPI.get_passage(bible_id, reference, self.get_lang_key())
             self.after(0, lambda: self._update_verse_ui(content))
@@ -383,7 +386,7 @@ class App(ctk.CTk):
         if content:
             self.verse_input.delete("1.0", "end")
             self.verse_input.insert("1.0", content)
-            self.status_label.configure(text="Verse fetched successfully.")
+            self.status_label.configure(text="Verse fetched successfully.", text_color="green")
 
             lang = self.get_lang_key()
             original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
@@ -392,7 +395,7 @@ class App(ctk.CTk):
 
             self.trigger_preview()
         else:
-            self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).")
+            self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).", text_color="red")
 
     def trigger_preview(self, *args):
         if hasattr(self, '_preview_after_id'):
@@ -506,7 +509,7 @@ class App(ctk.CTk):
             if not audio_save_path:
                 return
 
-        self.status_label.configure(text="Gerando arquivos...")
+        self.status_label.configure(text="Gerando arquivos...", text_color="gray")
         self.generate_btn.configure(state="disabled")
         self.update()
 
@@ -553,7 +556,7 @@ class App(ctk.CTk):
 
         # Status Label
         msg = self.generator.get_locale_string(lang, "success_msg")
-        self.status_label.configure(text=msg + audio_msg)
+        self.status_label.configure(text=msg + audio_msg, text_color="green")
 
         original_text = self.generator.get_locale_string(lang, "generate_btn")
         self.generate_btn.configure(text="✓ " + original_text)
@@ -563,7 +566,7 @@ class App(ctk.CTk):
         if self.alt_text:
             pyperclip.copy(self.alt_text)
             lang = self.get_lang_key()
-            self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"))
+            self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"), text_color="green")
             original_text = self.generator.get_locale_string(lang, "copy_alt_text_btn")
             self.copy_alt_btn.configure(text="✓ " + original_text)
             self.after(2000, lambda: self.copy_alt_btn.configure(text=original_text))
@@ -572,7 +575,7 @@ class App(ctk.CTk):
         if self.caption:
             pyperclip.copy(self.caption)
             lang = self.get_lang_key()
-            self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"))
+            self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"), text_color="green")
             original_text = self.generator.get_locale_string(lang, "copy_caption_btn")
             self.copy_caption_btn.configure(text="✓ " + original_text)
             self.after(2000, lambda: self.copy_caption_btn.configure(text=original_text))
