@@ -7,3 +7,6 @@
 ## 2023-10-29 - O(n²) to O(n) text wrapping optimization
 **Learning:** In Pillow, repeatedly measuring text strings by appending one word at a time via `draw.textbbox` or `draw.textlength` in a loop yields O(n²) string creation and measuring overhead.
 **Action:** Measure individual words once, cache the space width, and accumulate widths mathematically (O(n)). This speeds up text wrapping by over 90% for long text blocks without altering the layout.
+\n* Precompiling complex regular expressions used in hot paths (like ) at the class/module level with  avoids redundant compilation overhead, yielding a modest measurable speedup (e.g., ~6% improvement for 100,000 executions).
+
+* Precompiling complex regular expressions used in hot paths (like GetBibleAPI._parse_reference) at the class/module level with re.compile() avoids redundant compilation overhead, yielding a modest measurable speedup (e.g., ~6% improvement for 100,000 executions).
