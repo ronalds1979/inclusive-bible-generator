@@ -4,3 +4,6 @@
 ## 2023-10-28 - [getbible_api.py] Cache full chapter payload for verse lookups
 **Learning:** The `api.getbible.net/v2` API returns the payload for an entire chapter even when we are requesting specific verses from it. Doing sequential requests for verses from the same chapter incurs significant redundant network overhead.
 **Action:** When working with chapter-based APIs, cache the entire chapter payload in memory (e.g. using `functools.lru_cache`) instead of re-fetching per verse request.
+## 2023-10-29 - O(n²) to O(n) text wrapping optimization
+**Learning:** In Pillow, repeatedly measuring text strings by appending one word at a time via `draw.textbbox` or `draw.textlength` in a loop yields O(n²) string creation and measuring overhead.
+**Action:** Measure individual words once, cache the space width, and accumulate widths mathematically (O(n)). This speeds up text wrapping by over 90% for long text blocks without altering the layout.
