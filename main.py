@@ -398,6 +398,13 @@ class App(ctk.CTk):
             self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).", text_color="red")
 
     def trigger_preview(self, *args):
+        verse = self.verse_input.get("1.0", "end-1c").strip()
+        reference = self.reference_input.get().strip()
+
+        # Dynamically update button states for UX
+        self.fetch_btn.configure(state="normal" if reference else "disabled")
+        self.generate_btn.configure(state="normal" if verse and reference else "disabled")
+
         if hasattr(self, '_preview_after_id'):
             self.after_cancel(self._preview_after_id)
         self._preview_after_id = self.after(500, self.preview_content)
