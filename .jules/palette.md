@@ -13,3 +13,7 @@
 ## 2024-05-19 - Semantic Status Colors (Cognitive Accessibility)
 **Learning:** Initializing generic status labels with a single color (e.g., green) causes cognitive dissonance when error or neutral messages are displayed. In customtkinter, this can be confusing to users relying on visual cues.
 **Action:** When updating a shared `CTkLabel` for status messages, always dynamically configure `text_color` (`green` for success, `red` for error, `gray` for loading/neutral) alongside the text update to maintain semantic consistency.
+
+## 2026-10-30 - Dynamic Button States
+**Learning:** In customtkinter, binding real-time state updates to interactive elements (disabling buttons when required inputs are empty) prevents silent action failures and gives immediate visual feedback.
+**Action:** Always map empty input states to disabled button states for async actions.
