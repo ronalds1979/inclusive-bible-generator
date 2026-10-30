@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import edge_tts
+import re
 from PIL import Image, ImageDraw, ImageFont
 
 class Generator:
@@ -57,7 +58,6 @@ class Generator:
         voice = voices[lang_code].get(gender, voices[lang_code]["Female"])
 
         # Format the reference to avoid reading "3:16" as "3 hours and 16 minutes"
-        import re
         audio_ref = reference
 
         match = None
@@ -156,10 +156,16 @@ class Generator:
         draw = ImageDraw.Draw(img)
 
         # Convert hex color to RGBA
-        fill_color = font_color.lstrip('#')
-        if len(fill_color) == 6:
-            r, g, b = tuple(int(fill_color[i:i+2], 16) for i in (0, 2, 4))
-            rgba_color = (r, g, b, 255)
+        if re.match(r'^#?(?:[0-9a-fA-F]{3}){1,2}$', font_color):
+            fill_color = font_color.lstrip('#')
+            if len(fill_color) == 6:
+                r, g, b = tuple(int(fill_color[i:i+2], 16) for i in (0, 2, 4))
+                rgba_color = (r, g, b, 255)
+            elif len(fill_color) == 3:
+                r, g, b = tuple(int(fill_color[i]*2, 16) for i in range(3))
+                rgba_color = (r, g, b, 255)
+            else:
+                rgba_color = (255, 255, 255, 255)
         else:
             rgba_color = (255, 255, 255, 255)
 

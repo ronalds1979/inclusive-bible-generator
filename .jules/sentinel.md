@@ -16,3 +16,7 @@
 **Vulnerability:** Path traversal possible when dynamically loading background images (`background_filename`) and fonts (`font_type`) due to missing input sanitization before joining with directory paths in `generator.py`.
 **Learning:** `os.path.join` does not sanitize inputs natively. If an attacker provides a path like `../../etc/passwd` or an absolute path (e.g. `/etc/passwd`), `os.path.join` could resolve to paths outside the intended directory.
 **Prevention:** Always use `os.path.basename()` to strip out any path information when dealing with user-supplied filenames for assets before passing them to `os.path.join()`, ensuring the file is resolved strictly within the designated asset folder.
+## 2025-02-14 - Input Validation for UI Thread Safety (DoS Prevention)
+**Vulnerability:** The `generate_image` function parsed user-provided hex color strings (`font_color`) directly into integers using `int(..., 16)` without validation. If an invalid string was supplied (e.g. `#ZZZZZZ`), it threw a `ValueError`.
+**Learning:** Unhandled exceptions in background threads that serve UI events can crash the thread. If this occurs on a UI-blocking path or breaks the application's expected background loop, it effectively causes a Denial of Service (DoS) for the application's interface.
+**Prevention:** Always validate user input strings (e.g., using regex `^#(?:[0-9a-fA-F]{3}){1,2}$` for hex colors) before applying operations like `int(..., 16)` that assume a strict format, and provide a safe fallback for invalid inputs to maintain app stability.
