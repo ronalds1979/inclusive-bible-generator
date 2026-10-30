@@ -6,6 +6,7 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 
 AUDIO_REF_PATTERN = re.compile(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)")
+HEX_COLOR_PATTERN = re.compile(r'^#?(?:[0-9a-fA-F]{3}){1,2}$')
 
 class Generator:
     def __init__(self):
@@ -158,15 +159,18 @@ class Generator:
         draw = ImageDraw.Draw(img)
 
         # Convert hex color to RGBA
-        if re.match(r'^#?(?:[0-9a-fA-F]{3}){1,2}$', font_color):
+        if HEX_COLOR_PATTERN.match(font_color):
             fill_color = font_color.lstrip('#')
-            if len(fill_color) == 6:
-                r, g, b = tuple(int(fill_color[i:i+2], 16) for i in (0, 2, 4))
-                rgba_color = (r, g, b, 255)
-            elif len(fill_color) == 3:
-                r, g, b = tuple(int(fill_color[i]*2, 16) for i in range(3))
-                rgba_color = (r, g, b, 255)
-            else:
+            try:
+                if len(fill_color) == 6:
+                    r, g, b = tuple(int(fill_color[i:i+2], 16) for i in (0, 2, 4))
+                    rgba_color = (r, g, b, 255)
+                elif len(fill_color) == 3:
+                    r, g, b = tuple(int(fill_color[i]*2, 16) for i in range(3))
+                    rgba_color = (r, g, b, 255)
+                else:
+                    rgba_color = (255, 255, 255, 255)
+            except ValueError:
                 rgba_color = (255, 255, 255, 255)
         else:
             rgba_color = (255, 255, 255, 255)
