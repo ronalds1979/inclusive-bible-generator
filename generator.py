@@ -2,7 +2,10 @@ import os
 import json
 import asyncio
 import edge_tts
+import re
 from PIL import Image, ImageDraw, ImageFont
+
+AUDIO_REF_PATTERN = re.compile(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)")
 
 class Generator:
     def __init__(self):
@@ -57,12 +60,11 @@ class Generator:
         voice = voices[lang_code].get(gender, voices[lang_code]["Female"])
 
         # Format the reference to avoid reading "3:16" as "3 hours and 16 minutes"
-        import re
         audio_ref = reference
 
         match = None
         if reference and len(reference) <= 100:
-            match = re.match(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)", reference.strip())
+            match = AUDIO_REF_PATTERN.match(reference.strip())
 
         if match:
             book = match.group(1).strip()

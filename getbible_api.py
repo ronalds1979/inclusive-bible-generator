@@ -6,6 +6,15 @@ from book_mapping import BOOK_MAPPING
 class GetBibleAPI:
     BASE_URL = "https://api.getbible.net/v2"
 
+    LOWERCASE_BOOK_MAPPING = {
+        lang: {k.lower(): v for k, v in mapping.items()}
+        for lang, mapping in BOOK_MAPPING.items()
+    }
+
+    REFERENCE_PATTERN = re.compile(
+        r'^((?:\d\s+)?[a-zA-ZáéíóúãõçñÁÉÍÓÚÃÕÇÑ\s]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$'
+    )
+
     @staticmethod
     def get_versions(lang="en"):
         try:
@@ -41,9 +50,8 @@ class GetBibleAPI:
             return None, None, None, None
 
         lang_prefix = lang[:2].lower()
-        mapping = BOOK_MAPPING.get(lang_prefix, BOOK_MAPPING["en"])
 
-        match = re.match(r'^((?:\d\s+)?[a-zA-ZáéíóúãõçñÁÉÍÓÚÃÕÇÑ\s]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$', reference.strip())
+        match = GetBibleAPI.REFERENCE_PATTERN.match(reference.strip())
         if not match:
             return None, None, None, None
 
@@ -52,11 +60,7 @@ class GetBibleAPI:
         start_verse = match.group(3)
         end_verse = match.group(4)
 
-        book_nr = None
-        for k, v in mapping.items():
-            if k.lower() == book_name.lower():
-                book_nr = v
-                break
+        book_nr = GetBibleAPI.LOWERCASE_BOOK_MAPPING.get(lang_prefix, GetBibleAPI.LOWERCASE_BOOK_MAPPING["en"]).get(book_name.lower())
 
         return book_nr, chapter, start_verse, end_verse
 
