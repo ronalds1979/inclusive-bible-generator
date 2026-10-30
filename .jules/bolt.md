@@ -7,3 +7,8 @@
 ## 2023-10-29 - O(n²) to O(n) text wrapping optimization
 **Learning:** In Pillow, repeatedly measuring text strings by appending one word at a time via `draw.textbbox` or `draw.textlength` in a loop yields O(n²) string creation and measuring overhead.
 **Action:** Measure individual words once, cache the space width, and accumulate widths mathematically (O(n)). This speeds up text wrapping by over 90% for long text blocks without altering the layout.
+## 2025-03-01 - O(1) hash map lookup and Regex precompilation
+
+**Learning:** This codebase uses Python loops for basic lookups on large mappings and re-compiles regex at function invocation time. In hot paths (like reference parsing or repeated API calls), Pythons O(n) looping logic and regex compilation add up significantly. Converting large dictionaries to support O(1) lookups during class/module initialization, combined with precompiling regular expressions with `re.compile()` at the class/module level, significantly reduces evaluation time on the hot paths.
+
+**Action:** Whenever parsing or matching complex string formats iteratively, pre-compile the regular expression at class or module level, avoiding `re.match` with raw strings. Additionally, replace iterative matching on dictionaries with pre-transformed mappings designed for direct O(1) key lookups.

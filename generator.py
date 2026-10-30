@@ -5,6 +5,8 @@ import edge_tts
 import re
 from PIL import Image, ImageDraw, ImageFont
 
+AUDIO_REF_PATTERN = re.compile(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)")
+
 class Generator:
     def __init__(self):
         self.locales = {}
@@ -62,7 +64,7 @@ class Generator:
 
         match = None
         if reference and len(reference) <= 100:
-            match = re.match(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)", reference.strip())
+            match = AUDIO_REF_PATTERN.match(reference.strip())
 
         if match:
             book = match.group(1).strip()
