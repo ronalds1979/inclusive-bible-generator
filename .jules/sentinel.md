@@ -20,3 +20,8 @@
 **Vulnerability:** The `generate_image` function parsed user-provided hex color strings (`font_color`) directly into integers using `int(..., 16)` without validation. If an invalid string was supplied (e.g. `#ZZZZZZ`), it threw a `ValueError`.
 **Learning:** Unhandled exceptions in background threads that serve UI events can crash the thread. If this occurs on a UI-blocking path or breaks the application's expected background loop, it effectively causes a Denial of Service (DoS) for the application's interface.
 **Prevention:** Always validate user input strings (e.g., using regex `^#(?:[0-9a-fA-F]{3}){1,2}$` for hex colors) before applying operations like `int(..., 16)` that assume a strict format, and provide a safe fallback for invalid inputs to maintain app stability.
+
+## 2026-10-31 - Prevent UI DoS and Information Leakage
+**Vulnerability:** Unbounded user input length could freeze the UI thread during text processing, and unhandled exception traces were exposed directly to the UI.
+**Learning:** In desktop applications, large text inputs can cause Denial of Service by consuming excessive CPU/memory on the main thread during tasks like text wrapping. Exposing raw exception strings could also leak local file paths or internal details.
+**Prevention:** Always enforce reasonable length boundaries for user inputs, and return generic error messages to the UI without leaking the underlying stack trace or exception object.
