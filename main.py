@@ -236,7 +236,7 @@ class App(ctk.CTk):
         self.trigger_preview()
 
         # Image Preview
-        self.preview_label = ctk.CTkLabel(self.right_frame, text="Nenhuma imagem gerada ainda.", text_color="gray")
+        self.preview_label = ctk.CTkLabel(self.right_frame, text=self.generator.get_locale_string(self.get_lang_key(), "preview_empty_state"), text_color="gray")
         self.preview_label.grid(row=0, column=0, sticky="nsew")
 
         # Initial UI Update
@@ -328,6 +328,8 @@ class App(ctk.CTk):
         self.copy_alt_btn.configure(text=self.generator.get_locale_string(lang, "copy_alt_text_btn"))
         self.copy_caption_btn.configure(text=self.generator.get_locale_string(lang, "copy_caption_btn"))
         self.status_label.configure(text="")
+        if not getattr(self.preview_label, "image", None):
+            self.preview_label.configure(text=self.generator.get_locale_string(lang, "preview_empty_state"))
 
     def load_bible_versions(self, event=None):
         def _fetch():
@@ -462,6 +464,8 @@ class App(ctk.CTk):
     def preview_content(self):
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio = self.get_current_params()
         if not verse or not reference:
+            self.preview_label.configure(image="", text=self.generator.get_locale_string(self.get_lang_key(), "preview_empty_state"))
+            self.preview_label.image = None
             return
 
         try:
