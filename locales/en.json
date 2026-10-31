@@ -37,5 +37,6 @@
   "color_black": "Black",
   "color_gold": "Gold",
   "color_red": "Red",
-  "color_custom": "Custom..."
+  "color_custom": "Custom...",
+  "preview_empty_state": "Enter a verse and reference to see the preview."
 }

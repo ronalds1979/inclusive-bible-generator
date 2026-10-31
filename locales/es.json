@@ -37,5 +37,6 @@
   "color_black": "Negro",
   "color_gold": "Dorado",
   "color_red": "Rojo",
-  "color_custom": "Personalizado..."
+  "color_custom": "Personalizado...",
+  "preview_empty_state": "Introduce un versículo y referencia para ver la vista previa."
 }
