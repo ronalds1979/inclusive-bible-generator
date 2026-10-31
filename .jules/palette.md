@@ -17,3 +17,6 @@
 ## 2026-10-30 - Dynamic Button States
 **Learning:** In customtkinter, binding real-time state updates to interactive elements (disabling buttons when required inputs are empty) prevents silent action failures and gives immediate visual feedback.
 **Action:** Always map empty input states to disabled button states for async actions.
+## 2026-10-31 - [Empty State UI Prompt]
+**Learning:** Hardcoded empty states (like 'No image generated yet') reduce user clarity and fail internationalization.
+**Action:** Always map empty state placeholder text to localized keys in JSON and ensure they dynamically reset when input fields are cleared.
