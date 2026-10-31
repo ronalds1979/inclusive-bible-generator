@@ -446,7 +446,14 @@ class App(ctk.CTk):
 
     def get_current_params(self):
         verse = self.verse_input.get("1.0", "end-1c").strip()
+        # 🛡️ Sentinel: Enforce length limits to prevent DoS (e.g. from extreme wrapping)
+        if len(verse) > 5000:
+            verse = verse[:5000]
+
         reference = self.reference_input.get().strip()
+        if len(reference) > 100:
+            reference = reference[:100]
+
         background = self.bg_var.get()
         font_type = self.font_var.get()
         font_color = self.font_color_var.get().strip()
@@ -494,8 +501,9 @@ class App(ctk.CTk):
             ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
             self.preview_label.configure(image=ctk_img, text="")
             self.preview_label.image = ctk_img
-        except Exception as e:
-            self.preview_label.configure(image="", text=f"Error rendering preview:\n{str(e)}")
+        except Exception:
+            # 🛡️ Sentinel: Fail securely - don't expose sensitive stack traces to UI
+            self.preview_label.configure(image="", text="Error rendering preview. Please check your inputs.")
 
     def generate_content(self):
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path = self.get_current_params()
@@ -538,30 +546,36 @@ class App(ctk.CTk):
         self.update()
 
         def _process():
-            # Generate Image to Disk
-            pil_img = self.generator.generate_image(
-                self.current_lang, verse, reference, background_filename=background,
-                custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
-                font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
-            )
-            pil_img.save(image_save_path, "PNG")
-            self.last_generated_image_path = image_save_path
+            try:
+                # Generate Image to Disk
+                pil_img = self.generator.generate_image(
+                    self.current_lang, verse, reference, background_filename=background,
+                    custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
+                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+                )
+                pil_img.save(image_save_path, "PNG")
+                self.last_generated_image_path = image_save_path
 
-            # Generate Texts
-            self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
+                # Generate Texts
+                self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
 
-            # Generate Audio
-            audio_msg = ""
-            if self.audio_generate_var.get() and audio_save_path:
-                gender_selection = self.gender_var.get()
-                gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
-                try:
-                    audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key, custom_output_path=audio_save_path)
-                    audio_msg = f"\nÁudio salvo em: {os.path.abspath(audio_path)}"
-                except Exception as e:
-                    audio_msg = f"\nErro ao gerar áudio: {e}"
+                # Generate Audio
+                audio_msg = ""
+                if self.audio_generate_var.get() and audio_save_path:
+                    gender_selection = self.gender_var.get()
+                    gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
+                    try:
+                        audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key, custom_output_path=audio_save_path)
+                        audio_msg = f"\nÁudio salvo em: {os.path.abspath(audio_path)}"
+                    except Exception:
+                        # 🛡️ Sentinel: Do not leak exception strings
+                        audio_msg = f"\nErro ao gerar áudio. Verifique as configurações."
 
-            self.after(0, self._on_generate_complete, lang, audio_msg)
+                self.after(0, self._on_generate_complete, lang, audio_msg)
+            except Exception:
+                # 🛡️ Sentinel: Catch unhandled thread exceptions and update UI generically
+                self.after(0, lambda: self.status_label.configure(text="Ocorreu um erro durante a geração.", text_color="red"))
+                self.after(0, lambda: self.generate_btn.configure(state="normal"))
 
         threading.Thread(target=_process, daemon=True).start()
 
