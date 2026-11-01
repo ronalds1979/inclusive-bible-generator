@@ -25,3 +25,8 @@
 **Vulnerability:** Unbounded user input length could freeze the UI thread during text processing, and unhandled exception traces were exposed directly to the UI.
 **Learning:** In desktop applications, large text inputs can cause Denial of Service by consuming excessive CPU/memory on the main thread during tasks like text wrapping. Exposing raw exception strings could also leak local file paths or internal details.
 **Prevention:** Always enforce reasonable length boundaries for user inputs, and return generic error messages to the UI without leaking the underlying stack trace or exception object.
+
+## 2025-02-14 - Missing Timeout on Asyncio Network Calls
+**Vulnerability:** External TTS API call (`await communicate.save(...)`) lacked a timeout in `generator.py`.
+**Learning:** `asyncio` does not enforce default timeouts on underlying socket operations depending on the library. If an external service hangs, any `await` on it will hang indefinitely. When run from background threads serving the UI, this results in thread exhaustion and localized Denial of Service (DoS).
+**Prevention:** Always wrap external async calls that depend on network boundaries with `asyncio.wait_for(coroutine, timeout=X)` to ensure failures are quick and the app can recover securely.

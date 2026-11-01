@@ -89,9 +89,14 @@ class Generator:
             output_path = os.path.join(self.output_dir, filename)
 
         async def _generate():
-            # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
-            communicate = edge_tts.Communicate(text_to_read, voice, rate="-15%")
-            await communicate.save(output_path)
+            try:
+                # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
+                communicate = edge_tts.Communicate(text_to_read, voice, rate="-15%")
+                # 🛡️ Sentinel: Enforce strict timeout on external TTS service to prevent DoS/thread hanging. Timeout scaled to allow for longer generations safely.
+                await asyncio.wait_for(communicate.save(output_path), timeout=60)
+            except asyncio.TimeoutError as e:
+                print("Error: TTS generation timed out.")
+                raise Exception("TTS generation timed out.") from e
 
         asyncio.run(_generate())
         return output_path
