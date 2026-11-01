@@ -9,6 +9,15 @@ AUDIO_REF_PATTERN = re.compile(r"^([^\d]+|\d?\s*[a-zA-Záéíóúãõâêîôû�
 HEX_COLOR_PATTERN = re.compile(r'^#?(?:[0-9a-fA-F]{3}){1,2}$')
 
 class Generator:
+    LANG_MAP = {
+        "Português (Brasil)": "pt-BR",
+        "English (US/UK)": "en",
+        "Español (España)": "es",
+        "Português": "pt-BR",
+        "English": "en",
+        "Español": "es"
+    }
+
     def __init__(self):
         self.locales = {}
         self.load_locales()
@@ -28,7 +37,7 @@ class Generator:
                     self.locales[lang_code] = json.load(f)
 
     def get_locale_string(self, lang, key, **kwargs):
-        lang = lang.replace(" (Brasil)", "").replace("English (US/UK)", "en").replace("Español (España)", "es").replace("Português", "pt-BR")
+        lang = self.LANG_MAP.get(lang, "pt-BR")
         if lang not in self.locales:
              # Fallback
              lang = "pt-BR"
@@ -52,11 +61,7 @@ class Generator:
             "es": {"Male": "es-ES-AlvaroNeural", "Female": "es-ES-ElviraNeural"}
         }
 
-        lang_code = "pt-BR"
-        if "English" in lang:
-            lang_code = "en"
-        elif "Español" in lang:
-            lang_code = "es"
+        lang_code = self.LANG_MAP.get(lang, "pt-BR")
 
         voice = voices[lang_code].get(gender, voices[lang_code]["Female"])
 
@@ -102,11 +107,9 @@ class Generator:
         return output_path
 
     def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0):
-        lang_code = "pt"
-        if "English" in lang:
-            lang_code = "en"
-        elif "Español" in lang:
-            lang_code = "es"
+        lang_code = self.LANG_MAP.get(lang, "pt-BR")
+        if lang_code == "pt-BR":
+            lang_code = "pt"
 
         target_width = 1080
         target_height = 1080

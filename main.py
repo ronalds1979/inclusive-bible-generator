@@ -12,6 +12,12 @@ ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
 class App(ctk.CTk):
+    LANG_MAP = {
+        "Português (Brasil)": "pt-BR",
+        "English (US/UK)": "en",
+        "Español (España)": "es"
+    }
+
     def __init__(self):
         super().__init__()
 
@@ -246,10 +252,7 @@ class App(ctk.CTk):
         self.load_bible_versions()
 
     def get_lang_key(self):
-        lang = self.current_lang
-        if "English" in lang: return "en"
-        if "Español" in lang: return "es"
-        return "pt-BR"
+        return self.LANG_MAP.get(self.current_lang, "pt-BR")
 
     def change_language(self, choice):
         self.current_lang = choice
@@ -512,9 +515,7 @@ class App(ctk.CTk):
             return
 
         lang = self.get_lang_key()
-        lang_code = "pt"
-        if "en" in lang: lang_code = "en"
-        elif "es" in lang: lang_code = "es"
+        lang_code = "pt" if lang == "pt-BR" else lang
 
         safe_ref = reference.lower().replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")
         default_image_filename = f"{safe_ref}_{lang_code}.png"
