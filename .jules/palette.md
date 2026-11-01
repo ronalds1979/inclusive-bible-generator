@@ -20,3 +20,6 @@
 ## 2026-10-31 - [Empty State UI Prompt]
 **Learning:** Hardcoded empty states (like 'No image generated yet') reduce user clarity and fail internationalization.
 **Action:** Always map empty state placeholder text to localized keys in JSON and ensure they dynamically reset when input fields are cleared.
+## 2024-11-01 - Missing Live Preview Triggers
+**Learning:** In applications with live preview panels, failing to trigger a preview update when a user makes a selection (like choosing a background image from a dropdown) breaks the interaction flow, as the UI state changes but the visual feedback doesn't immediately reflect it.
+**Action:** Always ensure that every input or selection change that affects visual output has a bound event to trigger an immediate live preview update.

@@ -433,6 +433,7 @@ class App(ctk.CTk):
 
     def clear_custom_image(self, _choice):
         self.custom_image_path = None
+        self.trigger_preview()
 
     def select_custom_image(self):
         file_path = filedialog.askopenfilename(
