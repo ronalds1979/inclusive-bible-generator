@@ -23,3 +23,6 @@
 ## 2024-11-01 - Missing Live Preview Triggers
 **Learning:** In applications with live preview panels, failing to trigger a preview update when a user makes a selection (like choosing a background image from a dropdown) breaks the interaction flow, as the UI state changes but the visual feedback doesn't immediately reflect it.
 **Action:** Always ensure that every input or selection change that affects visual output has a bound event to trigger an immediate live preview update.
+## 2024-05-24 - Visual Loading State Feedback
+**Learning:** Adding a temporary visual indicator like "⏳" and a disabled state during asynchronous operations gives the user immediate feedback that an action is in progress and prevents double-clicking.
+**Action:** Always provide inline visual feedback during long-running tasks, especially for primary buttons.
