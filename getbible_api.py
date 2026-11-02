@@ -15,31 +15,28 @@ class GetBibleAPI:
         r'^((?:\d\s+)?[a-zA-ZáéíóúãõçñÁÉÍÓÚÃÕÇÑ\s]+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$'
     )
 
+    VERSIONS_MAP = {
+        "pt": [
+            {"id": "almeida", "name": "Almeida Atualizada"},
+            {"id": "livre", "name": "Bíblia Livre"}
+        ],
+        "en": [
+            {"id": "web", "name": "World English Bible"},
+            {"id": "kjv", "name": "King James Version"},
+            {"id": "asv", "name": "American Standard Version"},
+            {"id": "bbe", "name": "Bible in Basic English"}
+        ],
+        "es": [
+            {"id": "valera", "name": "Reina Valera (1909)"},
+            {"id": "sse", "name": "Sagradas Escrituras (1569)"}
+        ]
+    }
+
     @staticmethod
     def get_versions(lang="en"):
         try:
-            versions = []
             lang_prefix = lang[:2].lower()
-
-            if lang_prefix == "pt":
-                versions = [
-                    {"id": "almeida", "name": "Almeida Atualizada"},
-                    {"id": "livre", "name": "Bíblia Livre"}
-                ]
-            elif lang_prefix == "en":
-                versions = [
-                    {"id": "web", "name": "World English Bible"},
-                    {"id": "kjv", "name": "King James Version"},
-                    {"id": "asv", "name": "American Standard Version"},
-                    {"id": "bbe", "name": "Bible in Basic English"}
-                ]
-            elif lang_prefix == "es":
-                versions = [
-                    {"id": "valera", "name": "Reina Valera (1909)"},
-                    {"id": "sse", "name": "Sagradas Escrituras (1569)"}
-                ]
-
-            return versions
+            return GetBibleAPI.VERSIONS_MAP.get(lang_prefix, [])
         except Exception as e:
             print(f"Error fetching versions: {e}")
             return []

@@ -18,6 +18,13 @@ class App(ctk.CTk):
         "Español (España)": "es"
     }
 
+    COLOR_SYNC_MAP = {
+        "#FFFFFF": "color_white",
+        "#000000": "color_black",
+        "#FFD700": "color_gold",
+        "#FF0000": "color_red"
+    }
+
     def __init__(self):
         super().__init__()
 
@@ -302,16 +309,9 @@ class App(ctk.CTk):
 
         # Keep selected color in sync with new language
         current_color = self.font_color_var.get()
-        if current_color == "#FFFFFF":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_white"))
-        elif current_color == "#000000":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_black"))
-        elif current_color == "#FFD700":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_gold"))
-        elif current_color == "#FF0000":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_red"))
-        else:
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_custom"))
+        color_key = self.COLOR_SYNC_MAP.get(current_color, "color_custom")
+        self.font_color_dropdown.set(self.generator.get_locale_string(lang, color_key))
+
         self.font_color_label.configure(text=self.generator.get_locale_string(lang, "font_color_label"))
         self.font_size_label.configure(text=self.generator.get_locale_string(lang, "font_size_label"))
         self.y_offset_label.configure(text=self.generator.get_locale_string(lang, "y_offset_label"))

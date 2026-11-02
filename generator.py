@@ -18,6 +18,12 @@ class Generator:
         "Español": "es"
     }
 
+    ASPECT_RATIO_DIMENSIONS = {
+        "1:1": (1080, 1080),
+        "3:4": (1080, 1440),
+        "4:3": (1440, 1080)
+    }
+
     def __init__(self):
         self.locales = {}
         self.load_locales()
@@ -111,15 +117,7 @@ class Generator:
         if lang_code == "pt-BR":
             lang_code = "pt"
 
-        target_width = 1080
-        target_height = 1080
-
-        if aspect_ratio == "3:4":
-            target_width = 1080
-            target_height = 1440
-        elif aspect_ratio == "4:3":
-            target_width = 1440
-            target_height = 1080
+        target_width, target_height = self.ASPECT_RATIO_DIMENSIONS.get(aspect_ratio, (1080, 1080))
 
         if custom_image_path and os.path.exists(custom_image_path):
             bg_path = custom_image_path
