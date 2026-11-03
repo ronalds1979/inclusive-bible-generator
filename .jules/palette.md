@@ -23,3 +23,6 @@
 ## 2024-11-01 - Missing Live Preview Triggers
 **Learning:** In applications with live preview panels, failing to trigger a preview update when a user makes a selection (like choosing a background image from a dropdown) breaks the interaction flow, as the UI state changes but the visual feedback doesn't immediately reflect it.
 **Action:** Always ensure that every input or selection change that affects visual output has a bound event to trigger an immediate live preview update.
+## 2024-11-03 - [UX Pattern] Visual Feedback for Async Operations
+**Learning:** In customtkinter, users lack feedback during background thread operations like fetching network resources or generating files. Double-clicks can occur when interactive elements aren't properly disabled during these periods.
+**Action:** When executing long-running operations in threads, explicitly set interactive widgets (buttons, dropdowns) to `state="disabled"` and prepend visual indicators (like `⏳ `) to button text on the main UI thread. Always ensure error and completion callbacks restore `state="normal"` and original text in `self.after(0, ...)`.
