@@ -30,3 +30,8 @@
 **Vulnerability:** External TTS API call (`await communicate.save(...)`) lacked a timeout in `generator.py`.
 **Learning:** `asyncio` does not enforce default timeouts on underlying socket operations depending on the library. If an external service hangs, any `await` on it will hang indefinitely. When run from background threads serving the UI, this results in thread exhaustion and localized Denial of Service (DoS).
 **Prevention:** Always wrap external async calls that depend on network boundaries with `asyncio.wait_for(coroutine, timeout=X)` to ensure failures are quick and the app can recover securely.
+
+## 2025-02-14 - SSRF and Path Traversal in API Client URLs
+**Vulnerability:** URL segments derived from user-controlled inputs (like bible IDs or references) were interpolated directly into the API URL (`url = f".../{bible_id}/{book_nr}/{chapter}.json"`) without being URL encoded.
+**Learning:** This can lead to Server-Side Request Forgery (SSRF) and Path Traversal if the user input contains special characters like `../` or `?`. A malicious user might trick the client into making unexpected requests, potentially accessing unauthorized endpoints or breaking the URL structure.
+**Prevention:** Always URL-encode all dynamically inserted URL path segments or query parameters using `urllib.parse.quote(str(var), safe="")` before interpolating them into a URL string.
