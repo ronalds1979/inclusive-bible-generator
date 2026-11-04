@@ -23,3 +23,7 @@
 ## 2024-11-01 - Missing Live Preview Triggers
 **Learning:** In applications with live preview panels, failing to trigger a preview update when a user makes a selection (like choosing a background image from a dropdown) breaks the interaction flow, as the UI state changes but the visual feedback doesn't immediately reflect it.
 **Action:** Always ensure that every input or selection change that affects visual output has a bound event to trigger an immediate live preview update.
+
+## 2026-11-04 - Inline Progress Indicators for Long-Running Tasks
+**Learning:** During long-running tasks, changing only the global status label is often insufficient for communicating state clearly. Disabling interactive elements (like buttons or dropdowns) and temporarily prepending an indicator (e.g., '⏳ ') directly on the element provides immediate, localized visual feedback. This prevents double-clicks and makes the application feel more robust.
+**Action:** When implementing asynchronous operations, I will apply localized inline visual feedback and explicitly disable elements, restoring their state and text when the task resolves or fails.
