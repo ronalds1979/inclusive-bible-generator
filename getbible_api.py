@@ -1,6 +1,7 @@
 import requests
 import re
 import functools
+import urllib.parse
 from book_mapping import BOOK_MAPPING
 
 class GetBibleAPI:
@@ -70,7 +71,13 @@ class GetBibleAPI:
         # ⚡ Bolt: Cache chapter payloads to prevent redundant network requests.
         # The API returns full chapters even when querying specific verses.
         # Caching the chapter reduces latency for sequential verse lookups by 100%.
-        url = f"{GetBibleAPI.BASE_URL}/{bible_id}/{book_nr}/{chapter}.json"
+
+        # 🛡️ Sentinel: URL-encode path segments to prevent SSRF and Path Traversal
+        safe_bible_id = urllib.parse.quote(str(bible_id), safe="")
+        safe_book_nr = urllib.parse.quote(str(book_nr), safe="")
+        safe_chapter = urllib.parse.quote(str(chapter), safe="")
+
+        url = f"{GetBibleAPI.BASE_URL}/{safe_bible_id}/{safe_book_nr}/{safe_chapter}.json"
 
         # 🛡️ Sentinel: Added timeout=10 to prevent DoS/thread exhaustion if API hangs
         response = requests.get(url, timeout=10)
