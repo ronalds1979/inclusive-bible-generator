@@ -378,7 +378,9 @@ class App(ctk.CTk):
         if not bible_id:
             return
 
-        self.fetch_btn.configure(state="disabled")
+        lang = self.get_lang_key()
+        original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
+        self.fetch_btn.configure(state="disabled", text="⏳ " + original_text)
 
         def _fetch():
             self.after(0, lambda: self.status_label.configure(text="Fetching verse...", text_color="gray"))
@@ -390,18 +392,19 @@ class App(ctk.CTk):
 
     def _update_verse_ui(self, content):
         self.fetch_btn.configure(state="normal")
+        lang = self.get_lang_key()
+        original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
         if content:
             self.verse_input.delete("1.0", "end")
             self.verse_input.insert("1.0", content)
             self.status_label.configure(text="Verse fetched successfully.", text_color="green")
 
-            lang = self.get_lang_key()
-            original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
             self.fetch_btn.configure(text="✓ " + original_text)
             self.after(2000, lambda: self.fetch_btn.configure(text=original_text))
 
             self.trigger_preview()
         else:
+            self.fetch_btn.configure(text=original_text)
             self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).", text_color="red")
 
     def trigger_preview(self, *args):
@@ -544,7 +547,8 @@ class App(ctk.CTk):
                 return
 
         self.status_label.configure(text="Gerando arquivos...", text_color="gray")
-        self.generate_btn.configure(state="disabled")
+        original_generate_text = self.generator.get_locale_string(lang, "generate_btn")
+        self.generate_btn.configure(state="disabled", text="⏳ " + original_generate_text)
         self.update()
 
         def _process():
@@ -577,7 +581,7 @@ class App(ctk.CTk):
             except Exception:
                 # 🛡️ Sentinel: Catch unhandled thread exceptions and update UI generically
                 self.after(0, lambda: self.status_label.configure(text="Ocorreu um erro durante a geração.", text_color="red"))
-                self.after(0, lambda: self.generate_btn.configure(state="normal"))
+                self.after(0, lambda: self.generate_btn.configure(state="normal", text=original_generate_text))
 
         threading.Thread(target=_process, daemon=True).start()
 

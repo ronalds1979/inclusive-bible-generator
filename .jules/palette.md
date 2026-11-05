@@ -23,3 +23,6 @@
 ## 2024-11-01 - Missing Live Preview Triggers
 **Learning:** In applications with live preview panels, failing to trigger a preview update when a user makes a selection (like choosing a background image from a dropdown) breaks the interaction flow, as the UI state changes but the visual feedback doesn't immediately reflect it.
 **Action:** Always ensure that every input or selection change that affects visual output has a bound event to trigger an immediate live preview update.
+## 2024-05-25 - Use Hourglass Indicator for Async Action Feedback
+**Learning:** During long-running async operations (like fetching a verse or generating content), users may wonder if the application is frozen. Simply disabling the button isn't enough; prepending an hourglass indicator (⏳ ) to the button's text clearly communicates that a process is ongoing and prevents duplicate clicks.
+**Action:** When an action button triggers a background thread, immediately disable it and update its text to include "⏳ " to provide clear, localized, and inline loading feedback, ensuring to revert to the original text and state upon success or failure.
