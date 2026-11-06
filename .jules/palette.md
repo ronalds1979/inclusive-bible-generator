@@ -23,3 +23,6 @@
 ## 2024-11-01 - Missing Live Preview Triggers
 **Learning:** In applications with live preview panels, failing to trigger a preview update when a user makes a selection (like choosing a background image from a dropdown) breaks the interaction flow, as the UI state changes but the visual feedback doesn't immediately reflect it.
 **Action:** Always ensure that every input or selection change that affects visual output has a bound event to trigger an immediate live preview update.
+## 2024-11-06 - Inline Visual Feedback for Async Operations
+**Learning:** Implementing inline visual feedback and managing interactive states during asynchronous operations in customtkinter improves user awareness and prevents accidental double-clicks.
+**Action:** Always temporarily disable buttons/dropdowns and prepend an indicator (e.g., ⏳) to their text when a long-running task starts, restoring them upon resolution.
