@@ -5,6 +5,7 @@ from book_mapping import BOOK_MAPPING
 
 class GetBibleAPI:
     BASE_URL = "https://api.getbible.net/v2"
+    _session = requests.Session()
 
     LOWERCASE_BOOK_MAPPING = {
         lang: {k.lower(): v for k, v in mapping.items()}
@@ -72,8 +73,11 @@ class GetBibleAPI:
         # Caching the chapter reduces latency for sequential verse lookups by 100%.
         url = f"{GetBibleAPI.BASE_URL}/{bible_id}/{book_nr}/{chapter}.json"
 
+        # ⚡ Bolt: Use a persistent requests.Session() to enable connection pooling.
+        # This eliminates redundant TCP/TLS handshake overhead on repeated API calls,
+        # significantly reducing latency.
         # 🛡️ Sentinel: Added timeout=10 to prevent DoS/thread exhaustion if API hangs
-        response = requests.get(url, timeout=10)
+        response = GetBibleAPI._session.get(url, timeout=10)
         response.raise_for_status()
         return response.json()
 
