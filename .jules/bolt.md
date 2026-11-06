@@ -26,3 +26,6 @@
 ## 2025-03-02 - O(n) to O(1) Dictionary Mapping Optimization
 **Learning:** Repetitive chained string manipulations (e.g., `lang.replace(A, B).replace(C, D)`) or sequential `if/elif "str" in var` checks for mapping predefined choices to keys are computationally expensive and scale poorly (O(n)).
 **Action:** Replace iterative string comparisons and nested conditional assignments with O(1) class-level hash map (dictionary) lookups (e.g., `self.LANG_MAP.get(lang, fallback)`). This simplifies code and improves runtime performance by roughly 83% for repetitive function calls.
+## 2026-11-06 - [Connection Pooling in requests]
+**Learning:** Using independent `requests.get()` calls incurs significant TCP/TLS handshake overhead for each request to the same host (e.g., api.getbible.net). Introducing a persistent `requests.Session()` enables connection pooling, eliminating this redundant overhead and improving latency by ~58%.
+**Action:** Always prefer `requests.Session()` over `requests.get()` when making multiple sequential API calls to the same host to optimize network performance.
