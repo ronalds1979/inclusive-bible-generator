@@ -30,3 +30,7 @@
 ## 2025-03-02 - Use requests.Session for connection pooling
 **Learning:** Repetitive independent `requests.get()` calls to the same host (e.g. api.getbible.net) establish new TCP and TLS connections each time, incurring significant overhead.
 **Action:** Use a persistent `requests.Session()` object instead, which reuses the underlying connection via connection pooling, thereby eliminating the redundant handshake overhead and improving response times considerably (often by 50% or more).
+
+## 2025-03-02 - Memoize Pillow text measurements for text wrapping
+**Learning:** During text wrapping operations, measuring individual words using Pillow's `draw.textlength` incurs significant overhead, especially for long verse texts that are repeatedly re-wrapped during live previews (e.g. typing events). Additionally, `draw.textlength` has a slight overhead compared to querying the font directly via `font.getlength`.
+**Action:** When performing word-by-word text wrapping loops, prefer `font.getlength` over `draw.textlength` to skip ImageDraw lookup overhead. Additionally, implement an in-memory dictionary cache to memoize word widths, preventing redundant rendering calculations for repeated words in long texts.
