@@ -192,7 +192,7 @@ class App(ctk.CTk):
         self.audio_config_frame.grid_columnconfigure((0, 1), weight=1)
 
         self.audio_generate_var = ctk.BooleanVar(value=False)
-        self.audio_generate_checkbox = ctk.CTkCheckBox(self.audio_config_frame, text="Gerar Áudio (TTS)?", variable=self.audio_generate_var)
+        self.audio_generate_checkbox = ctk.CTkCheckBox(self.audio_config_frame, text="Gerar Áudio (TTS)?", variable=self.audio_generate_var, command=self.toggle_audio_options)
         self.audio_generate_checkbox.grid(row=0, column=0, pady=(0, 5), padx=(0, 5), sticky="w")
 
         self.gender_label = ctk.CTkLabel(self.audio_config_frame, text="Voz:")
@@ -202,7 +202,8 @@ class App(ctk.CTk):
         self.gender_dropdown = ctk.CTkOptionMenu(
             self.audio_config_frame,
             values=["Female", "Male"],
-            variable=self.gender_var
+            variable=self.gender_var,
+            state="disabled"
         )
         self.gender_dropdown.grid(row=1, column=1, padx=(5, 0), sticky="ew")
 
@@ -250,6 +251,12 @@ class App(ctk.CTk):
         # Initial UI Update
         self.update_ui_texts()
         self.load_bible_versions()
+
+    def toggle_audio_options(self):
+        if self.audio_generate_var.get():
+            self.gender_dropdown.configure(state="normal")
+        else:
+            self.gender_dropdown.configure(state="disabled")
 
     def get_lang_key(self):
         return self.LANG_MAP.get(self.current_lang, "pt-BR")

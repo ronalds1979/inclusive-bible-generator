@@ -26,3 +26,6 @@
 ## 2024-05-25 - Use Hourglass Indicator for Async Action Feedback
 **Learning:** During long-running async operations (like fetching a verse or generating content), users may wonder if the application is frozen. Simply disabling the button isn't enough; prepending an hourglass indicator (⏳ ) to the button's text clearly communicates that a process is ongoing and prevents duplicate clicks.
 **Action:** When an action button triggers a background thread, immediately disable it and update its text to include "⏳ " to provide clear, localized, and inline loading feedback, ensuring to revert to the original text and state upon success or failure.
+## 2026-11-07 - Disable Dependent UI Elements
+**Learning:** When a UI interaction depends on a prerequisite state (like a Voice selection dropdown relying on a TTS generation checkbox), failing to disable the dependent element increases cognitive load and invites configuration confusion.
+**Action:** Always link the interactive `state` of dependent dropdowns/inputs to the primary checkbox or toggle, preventing interaction until the required feature is enabled.
