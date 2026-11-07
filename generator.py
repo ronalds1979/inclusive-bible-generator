@@ -244,17 +244,29 @@ class Generator:
         # ⚡ Bolt: Measure words individually and accumulate widths
         # to avoid O(n²) string concatenation and re-measuring during wrap.
         # This speeds up text wrapping by ~95%.
+        # ⚡ Bolt: Further optimization by memoizing word widths to avoid redundant computations,
+        # and prefer font.getlength over draw.textlength to avoid ImageDraw lookup overhead.
         lines = []
         words = text.split(' ')
         current_line = []
         current_width = 0
 
         try:
-            space_width = draw.textlength(" ", font=font)
-            measure = lambda t: draw.textlength(t, font=font)
+            space_width = font.getlength(" ")
+            _measure = lambda t: font.getlength(t)
         except AttributeError:
-            space_width = draw.textsize(" ", font=font)[0]
-            measure = lambda t: draw.textsize(t, font=font)[0]
+            try:
+                space_width = draw.textlength(" ", font=font)
+                _measure = lambda t: draw.textlength(t, font=font)
+            except AttributeError:
+                space_width = draw.textsize(" ", font=font)[0]
+                _measure = lambda t: draw.textsize(t, font=font)[0]
+
+        word_cache = {}
+        def measure(t):
+            if t not in word_cache:
+                word_cache[t] = _measure(t)
+            return word_cache[t]
 
         for word in words:
             w = measure(word)
