@@ -26,3 +26,6 @@
 ## 2024-05-25 - Use Hourglass Indicator for Async Action Feedback
 **Learning:** During long-running async operations (like fetching a verse or generating content), users may wonder if the application is frozen. Simply disabling the button isn't enough; prepending an hourglass indicator (⏳ ) to the button's text clearly communicates that a process is ongoing and prevents duplicate clicks.
 **Action:** When an action button triggers a background thread, immediately disable it and update its text to include "⏳ " to provide clear, localized, and inline loading feedback, ensuring to revert to the original text and state upon success or failure.
+## 2024-05-26 - Link interactive state of dependent UI elements
+**Learning:** Initializing dependent UI components in their "active" state when their primary toggle is off causes cognitive load and confusion.
+**Action:** When adding optional configuration components (like Voice selection for TTS), always link their disabled/enabled `state` to the primary feature toggle (`audio_generate_var`) and set the initial state correctly on load.

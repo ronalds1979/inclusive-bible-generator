@@ -192,7 +192,7 @@ class App(ctk.CTk):
         self.audio_config_frame.grid_columnconfigure((0, 1), weight=1)
 
         self.audio_generate_var = ctk.BooleanVar(value=False)
-        self.audio_generate_checkbox = ctk.CTkCheckBox(self.audio_config_frame, text="Gerar Áudio (TTS)?", variable=self.audio_generate_var)
+        self.audio_generate_checkbox = ctk.CTkCheckBox(self.audio_config_frame, text="Gerar Áudio (TTS)?", variable=self.audio_generate_var, command=self.toggle_audio_config)
         self.audio_generate_checkbox.grid(row=0, column=0, pady=(0, 5), padx=(0, 5), sticky="w")
 
         self.gender_label = ctk.CTkLabel(self.audio_config_frame, text="Voz:")
@@ -250,6 +250,16 @@ class App(ctk.CTk):
         # Initial UI Update
         self.update_ui_texts()
         self.load_bible_versions()
+
+        self.toggle_audio_config()
+
+    def toggle_audio_config(self):
+        if self.audio_generate_var.get():
+            self.gender_dropdown.configure(state="normal")
+            self.gender_label.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
+        else:
+            self.gender_dropdown.configure(state="disabled")
+            self.gender_label.configure(text_color="gray")
 
     def get_lang_key(self):
         return self.LANG_MAP.get(self.current_lang, "pt-BR")
