@@ -243,21 +243,26 @@ class Generator:
     def wrap_text(self, text, font, max_width, draw):
         # ⚡ Bolt: Measure words individually and accumulate widths
         # to avoid O(n²) string concatenation and re-measuring during wrap.
-        # This speeds up text wrapping by ~95%.
+        # Also memoize individual word widths in a dictionary and prefer
+        # font.getlength over draw.textlength to avoid ImageDraw lookup overhead.
         lines = []
         words = text.split(' ')
         current_line = []
         current_width = 0
 
         try:
-            space_width = draw.textlength(" ", font=font)
-            measure = lambda t: draw.textlength(t, font=font)
+            space_width = font.getlength(" ")
+            measure = font.getlength
         except AttributeError:
-            space_width = draw.textsize(" ", font=font)[0]
-            measure = lambda t: draw.textsize(t, font=font)[0]
+            space_width = font.getsize(" ")[0]
+            measure = lambda t: font.getsize(t)[0]
 
+        word_widths = {}
         for word in words:
-            w = measure(word)
+            if word not in word_widths:
+                word_widths[word] = measure(word)
+            w = word_widths[word]
+
             if current_line:
                 if current_width + space_width + w > max_width:
                     lines.append(' '.join(current_line))
