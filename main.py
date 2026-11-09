@@ -217,6 +217,7 @@ class App(ctk.CTk):
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
         self.output_textbox.grid(row=12, column=0, columnspan=2, pady=10, sticky="ew")
+        self.output_textbox.configure(state="disabled")
 
         # Generate Button
         self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
@@ -595,11 +596,13 @@ class App(ctk.CTk):
     def _on_generate_complete(self, lang, audio_msg):
         self.generate_btn.configure(state="normal")
         # Update Textbox
+        self.output_textbox.configure(state="normal")
         self.output_textbox.delete("1.0", "end")
         alt_label = self.generator.get_locale_string(lang, "alt_text_label")
         cap_label = self.generator.get_locale_string(lang, "caption_label")
         display_text = f"--- {alt_label} ---\n{self.alt_text}\n\n--- {cap_label} ---\n{self.caption}"
         self.output_textbox.insert("1.0", display_text)
+        self.output_textbox.configure(state="disabled")
 
         # Enable copy buttons
         self.copy_alt_btn.configure(state="normal")
