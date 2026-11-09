@@ -27,6 +27,7 @@ class Generator:
         os.makedirs(self.output_dir, exist_ok=True)
         self._bg_cache = {}
         self._font_cache = {}
+        self._wrap_cache = {}
 
     def load_locales(self):
         locales_dir = "locales"
@@ -245,6 +246,15 @@ class Generator:
         # to avoid O(n²) string concatenation and re-measuring during wrap.
         # Also memoize individual word widths in a dictionary and prefer
         # font.getlength over draw.textlength to avoid ImageDraw lookup overhead.
+        # Furthermore, cache the final wrapped text to eliminate redundant calculations
+        # during identical live preview rendering cycles.
+        font_id = getattr(font, "font", getattr(font, "path", str(font)))
+        font_size = getattr(font, "size", 0)
+        cache_key = (text, font_id, font_size, max_width)
+
+        if cache_key in self._wrap_cache:
+            return self._wrap_cache[cache_key]
+
         lines = []
         words = text.split(' ')
         current_line = []
@@ -278,4 +288,6 @@ class Generator:
         if current_line:
             lines.append(' '.join(current_line))
 
-        return '\n'.join(lines)
+        result = '\n'.join(lines)
+        self._wrap_cache[cache_key] = result
+        return result

@@ -34,3 +34,7 @@
 ## 2025-03-02 - O(n²) string creation to O(1) dictionary word width lookup optimization
 **Learning:** In Pillow, when implementing text wrapping, looking up the length of words using `draw.textlength` repeatedly incurs overhead. Memoizing the word widths in an in-memory dictionary prevents redundant calculations for repeated words, and preferring `font.getlength` over `draw.textlength` skips the `ImageDraw` lookup overhead.
 **Action:** Use an in-memory dictionary to memoize individual word widths during text wrapping and use `font.getlength` for measuring to drastically reduce execution time by avoiding redundant calculations and lookup overhead.
+
+## 2025-03-02 - Memoize final text wrapping results in Generator
+**Learning:** During live preview rendering, the `wrap_text` function executes text wrapping (measuring and wrapping individual words using the font). Although the word measurements are accumulated linearly, the final layout process is still run every render tick. Memoizing the complete layout text eliminates all overhead when the text hasn't changed.
+**Action:** Add an LRU cache or dictionary cache using `(text, font_identifier, font_size, max_width)` as the key in `Generator`'s `wrap_text` method.
