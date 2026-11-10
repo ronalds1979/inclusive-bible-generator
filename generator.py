@@ -96,8 +96,11 @@ class Generator:
 
         async def _generate():
             try:
+                # 🛡️ Sentinel: Sanitize text to prevent SSML injection
+                safe_text_to_read = text_to_read.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
                 # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
-                communicate = edge_tts.Communicate(text_to_read, voice, rate="-15%")
+                communicate = edge_tts.Communicate(safe_text_to_read, voice, rate="-15%")
                 # 🛡️ Sentinel: Enforce strict timeout on external TTS service to prevent DoS/thread hanging. Timeout scaled to allow for longer generations safely.
                 await asyncio.wait_for(communicate.save(output_path), timeout=60)
             except asyncio.TimeoutError as e:
