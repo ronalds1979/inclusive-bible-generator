@@ -29,6 +29,10 @@
 ## 2026-11-07 - Disable Dependent UI Elements
 **Learning:** When a UI interaction depends on a prerequisite state (like a Voice selection dropdown relying on a TTS generation checkbox), failing to disable the dependent element increases cognitive load and invites configuration confusion.
 **Action:** Always link the interactive `state` of dependent dropdowns/inputs to the primary checkbox or toggle, preventing interaction until the required feature is enabled.
-## 2024-05-24 - Prevent Edits in Output-Only Textboxes
-**Learning:** Users can get confused when they can edit a generated output field but the program's "Copy" buttons ignore their edits (because the buttons read from internal variables, not the UI widget).
-**Action:** Always configure output-only `CTkTextbox` widgets as `state="disabled"`. When programmatically updating the text, temporarily set the state to `"normal"`, update the text, and immediately revert to `"disabled"`.
+
+## 2026-11-10 - Read-only Output Widgets
+**Learning:** In customtkinter, output-only widgets like `CTkTextbox` used alongside programmatic 'copy' buttons can cause user confusion if left editable, as the copy buttons ignore direct edits.
+**Action:** Always initialize output-only `CTkTextbox` widgets with `state="disabled"`. When programmatic updates are needed, temporarily set `state="normal"`, apply changes, and revert to `state="disabled"` to prevent user edits while ensuring programmatic copying works correctly.
+## 2024-05-24 - Disable Interaction During Async Loads
+**Learning:** When fetching data asynchronously (like loading API configurations in the background), leaving UI controls enabled leads to race conditions, silent failures, or confusing error messages if users click them before data arrives.
+**Action:** Always initialize dependent controls (like dropdowns and action buttons) as `state="disabled"`. Explicitly disable them when a background load starts, and only set them to `state="normal"` in the success callback. Ensure state updates are funneled through central UI refresh methods (like `trigger_preview`).

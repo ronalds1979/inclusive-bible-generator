@@ -64,9 +64,9 @@ class App(ctk.CTk):
         self.bible_version_label = ctk.CTkLabel(self.api_frame, text="Versão:")
         self.bible_version_label.grid(row=0, column=0, pady=(0, 5), padx=(0, 5), sticky="w")
 
-        self.bible_version_var = ctk.StringVar()
+        self.bible_version_var = ctk.StringVar(value="-")
         self.bible_version_dropdown = ctk.CTkOptionMenu(
-            self.api_frame, values=["-"], variable=self.bible_version_var
+            self.api_frame, values=["-"], variable=self.bible_version_var, state="disabled"
         )
         self.bible_version_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
         self.bible_versions_map = {}
@@ -215,9 +215,8 @@ class App(ctk.CTk):
         self.reference_input.bind("<Return>", lambda event: self.fetch_verse())
 
         # Output Textbox (Alt-Text & Caption)
-        self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150)
+        self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150, state="disabled")
         self.output_textbox.grid(row=12, column=0, columnspan=2, pady=10, sticky="ew")
-        self.output_textbox.configure(state="disabled")
 
         # Generate Button
         self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
@@ -345,6 +344,7 @@ class App(ctk.CTk):
             self.preview_label.configure(text=self.generator.get_locale_string(lang, "preview_empty_state"))
 
     def load_bible_versions(self, event=None):
+        self.bible_version_dropdown.configure(state="disabled")
         def _fetch():
             self.after(0, lambda: self.status_label.configure(text="Loading Bible versions...", text_color="gray"))
 
@@ -365,14 +365,16 @@ class App(ctk.CTk):
         threading.Thread(target=_fetch, daemon=True).start()
 
     def _update_version_dropdown(self, version_names):
-        self.bible_version_dropdown.configure(values=version_names)
+        self.bible_version_dropdown.configure(values=version_names, state="normal")
         self.bible_version_var.set(version_names[0])
         self.status_label.configure(text="")
+        self.trigger_preview()
 
     def _update_version_dropdown_error(self):
         self.bible_version_dropdown.configure(values=["-"])
         self.bible_version_var.set("-")
         self.status_label.configure(text="Error loading versions or invalid API key.", text_color="red")
+        self.trigger_preview()
 
     def fetch_verse(self):
         version_name = self.bible_version_var.get()
@@ -418,9 +420,10 @@ class App(ctk.CTk):
     def trigger_preview(self, *args):
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
+        version_loaded = self.bible_version_var.get() != "-"
 
         # Dynamically update button states for UX
-        self.fetch_btn.configure(state="normal" if reference else "disabled")
+        self.fetch_btn.configure(state="normal" if reference and version_loaded else "disabled")
         self.generate_btn.configure(state="normal" if verse and reference else "disabled")
 
         if hasattr(self, '_preview_after_id'):

@@ -27,6 +27,7 @@ class Generator:
         os.makedirs(self.output_dir, exist_ok=True)
         self._bg_cache = {}
         self._font_cache = {}
+        self._wrap_cache = {}
 
     def load_locales(self):
         locales_dir = "locales"
@@ -95,8 +96,11 @@ class Generator:
 
         async def _generate():
             try:
+                # 🛡️ Sentinel: Sanitize text to prevent SSML injection
+                safe_text_to_read = text_to_read.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
                 # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
-                communicate = edge_tts.Communicate(text_to_read, voice, rate="-15%")
+                communicate = edge_tts.Communicate(safe_text_to_read, voice, rate="-15%")
                 # 🛡️ Sentinel: Enforce strict timeout on external TTS service to prevent DoS/thread hanging. Timeout scaled to allow for longer generations safely.
                 await asyncio.wait_for(communicate.save(output_path), timeout=60)
             except asyncio.TimeoutError as e:
@@ -241,6 +245,13 @@ class Generator:
         return img
 
     def wrap_text(self, text, font, max_width, draw):
+        # ⚡ Bolt: Check if wrapped text is already cached for these parameters
+        # to completely bypass layout process when inputs haven't changed.
+        # Use id(font) to avoid font.getname() exceptions and ensure uniqueness.
+        cache_key = (text, id(font), max_width)
+        if cache_key in self._wrap_cache:
+            return self._wrap_cache[cache_key]
+
         # ⚡ Bolt: Measure words individually and accumulate widths
         # to avoid O(n²) string concatenation and re-measuring during wrap.
         # Also memoize individual word widths in a dictionary and prefer
@@ -278,4 +289,9 @@ class Generator:
         if current_line:
             lines.append(' '.join(current_line))
 
-        return '\n'.join(lines)
+        wrapped = '\n'.join(lines)
+        # ⚡ Bolt: Bound the cache size to prevent memory leaks
+        if len(self._wrap_cache) > 256:
+            self._wrap_cache.clear()
+        self._wrap_cache[cache_key] = wrapped
+        return wrapped
