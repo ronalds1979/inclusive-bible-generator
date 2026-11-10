@@ -35,3 +35,8 @@
 **Vulnerability:** The application constructed external API URLs by directly interpolating unvalidated user inputs (e.g., `bible_id`, `book_nr`, `chapter`) into a format string (`f".../{bible_id}/{book_nr}/{chapter}.json"`).
 **Learning:** Constructing URLs without encoding variables allows an attacker to inject characters like `..`, `/`, or `?` which can alter the path structure or inject query parameters, potentially causing Server-Side Request Forgery (SSRF) or API path traversal.
 **Prevention:** Always URL-encode dynamic segments of a URL path or query string using `urllib.parse.quote(str(var), safe="")` to safely escape slashes and control characters before constructing the URL string.
+
+## 2025-05-18 - Prevent SSML Injection in Text-to-Speech
+**Vulnerability:** The application passed user-supplied bible reference and verse texts directly into `edge_tts.Communicate` without escaping HTML/XML elements like `<` and `>`.
+**Learning:** `edge_tts` generates speech from text using SSML (Speech Synthesis Markup Language). Allowing raw `<` and `>` characters permits a malicious user to perform SSML injection (e.g., inputting `<break time='10s'/>` to cause unbounded delays), which leads to backend abuse or DoS.
+**Prevention:** Always sanitize input intended for TTS or SSML engines by escaping characters (`<` to `&lt;`, `>` to `&gt;`, `&` to `&amp;`) to prevent SSML injection vulnerabilities before processing.
