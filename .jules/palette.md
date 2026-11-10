@@ -29,3 +29,7 @@
 ## 2026-11-07 - Disable Dependent UI Elements
 **Learning:** When a UI interaction depends on a prerequisite state (like a Voice selection dropdown relying on a TTS generation checkbox), failing to disable the dependent element increases cognitive load and invites configuration confusion.
 **Action:** Always link the interactive `state` of dependent dropdowns/inputs to the primary checkbox or toggle, preventing interaction until the required feature is enabled.
+
+## 2026-11-10 - Read-only Output Widgets
+**Learning:** In customtkinter, output-only widgets like `CTkTextbox` used alongside programmatic 'copy' buttons can cause user confusion if left editable, as the copy buttons ignore direct edits.
+**Action:** Always initialize output-only `CTkTextbox` widgets with `state="disabled"`. When programmatic updates are needed, temporarily set `state="normal"`, apply changes, and revert to `state="disabled"` to prevent user edits while ensuring programmatic copying works correctly.
