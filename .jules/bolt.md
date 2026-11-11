@@ -38,3 +38,7 @@
 ## 2025-03-02 - Final Wrapped Text Memoization Optimization
 **Learning:** In applications where text layouts are repeatedly calculated (e.g. live preview generating in a UI) and text length measuring logic has already been optimized, the layout computation itself (splitting, checking length, joining strings) is still computationally heavy over numerous iterations.
 **Action:** When working with live preview generation of strings where text properties (content, font, size, and max width) remain constant between renders, implement an in-memory dictionary cache to memoize the final wrapped text to completely bypass the layout processing overhead.
+
+## 2025-03-02 - O(n) String Manipulation to O(1) Translate Optimization
+**Learning:** Chained string manipulations like `.replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")` loop over strings repeatedly resulting in O(n) complexity where `n` scales by the number of replaces.
+**Action:** Use Python's built-in `str.translate` functionality by pre-computing mappings via `str.maketrans()` on class level. This reduces the time complexity for substring replacements to roughly O(1) relative to chained replaces, minimizing unnecessary intermediate string objects.
