@@ -18,6 +18,9 @@ class Generator:
         "Español": "es"
     }
 
+    SAFE_REF_MAP = str.maketrans(" :/\\", "____")
+    SSML_MAP = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
+
     def __init__(self):
         self.locales = {}
         self.load_locales()
@@ -90,14 +93,14 @@ class Generator:
         if custom_output_path:
             output_path = custom_output_path
         else:
-            safe_ref = reference.lower().replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")
+            safe_ref = reference.lower().translate(self.SAFE_REF_MAP)
             filename = f"{safe_ref}_{lang_code}.mp3"
             output_path = os.path.join(self.output_dir, filename)
 
         async def _generate():
             try:
                 # 🛡️ Sentinel: Sanitize text to prevent SSML injection
-                safe_text_to_read = text_to_read.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                safe_text_to_read = text_to_read.translate(self.SSML_MAP)
 
                 # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
                 communicate = edge_tts.Communicate(safe_text_to_read, voice, rate="-15%")

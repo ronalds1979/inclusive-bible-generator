@@ -527,7 +527,7 @@ class App(ctk.CTk):
         lang = self.get_lang_key()
         lang_code = "pt" if lang == "pt-BR" else lang
 
-        safe_ref = reference.lower().replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")
+        safe_ref = reference.lower().translate(self.generator.SAFE_REF_MAP)
         default_image_filename = f"{safe_ref}_{lang_code}.png"
         default_audio_filename = f"{safe_ref}_{lang_code}.mp3"
 
