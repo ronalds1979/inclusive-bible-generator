@@ -35,3 +35,8 @@
 **Vulnerability:** The application constructed external API URLs by directly interpolating unvalidated user inputs (e.g., `bible_id`, `book_nr`, `chapter`) into a format string (`f".../{bible_id}/{book_nr}/{chapter}.json"`).
 **Learning:** Constructing URLs without encoding variables allows an attacker to inject characters like `..`, `/`, or `?` which can alter the path structure or inject query parameters, potentially causing Server-Side Request Forgery (SSRF) or API path traversal.
 **Prevention:** Always URL-encode dynamic segments of a URL path or query string using `urllib.parse.quote(str(var), safe="")` to safely escape slashes and control characters before constructing the URL string.
+
+## 2026-10-31 - Cache Memory Exhaustion (DoS)
+**Vulnerability:** The `Generator` class used standard Python dictionaries (`_bg_cache`, `_font_cache`) for caching dynamically rendered backgrounds and fonts based on UI inputs (like fractional variations from slider drags).
+**Learning:** Using unbounded dictionary caches for inputs that can have continuous or large possible values (e.g. dragging a slider) leads to unrestricted cache growth, which can exhaust memory and cause an application-level DoS (Out of Memory).
+**Prevention:** Bound all in-memory caches by implementing size checks (e.g. `len(cache) > 50`) and periodically clearing or implementing a LRU eviction strategy.
