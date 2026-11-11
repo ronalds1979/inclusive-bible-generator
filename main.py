@@ -321,8 +321,8 @@ class App(ctk.CTk):
         else:
             self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_custom"))
         self.font_color_label.configure(text=self.generator.get_locale_string(lang, "font_color_label"))
-        self.font_size_label.configure(text=self.generator.get_locale_string(lang, "font_size_label"))
-        self.y_offset_label.configure(text=self.generator.get_locale_string(lang, "y_offset_label"))
+        self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {int(self.font_size_var.get())}")
+        self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {int(self.y_offset_var.get())}")
 
         self.audio_generate_checkbox.configure(text=self.generator.get_locale_string(lang, "audio_label"))
         self.gender_label.configure(text=self.generator.get_locale_string(lang, "gender_label"))
@@ -419,6 +419,10 @@ class App(ctk.CTk):
             self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).", text_color="red")
 
     def trigger_preview(self, *args):
+        lang = self.get_lang_key()
+        self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {int(self.font_size_var.get())}")
+        self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {int(self.y_offset_var.get())}")
+
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
 
@@ -458,6 +462,12 @@ class App(ctk.CTk):
             filetypes=[("Image files", "*.png *.jpg *.jpeg"), ("All files", "*.*")]
         )
         if file_path:
+            # 🛡️ Sentinel: Reject oversized files (> 20MB) to prevent Out-Of-Memory / UI freeze DoS
+            try:
+                if os.path.getsize(file_path) > 20 * 1024 * 1024:
+                    return
+            except OSError:
+                return
             self.custom_image_path = file_path
             self.bg_var.set(os.path.basename(file_path))
             self.trigger_preview()

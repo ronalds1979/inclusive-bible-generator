@@ -41,12 +41,16 @@ class Generator:
                     self.locales[lang_code] = json.load(f)
 
     def get_locale_string(self, lang, key, **kwargs):
-        lang = self.LANG_MAP.get(lang, "pt-BR")
+        # ⚡ Bolt: Fast-path check if `lang` is already a normalized locale key
+        # and skip `.format(**kwargs)` when no template arguments are provided.
         if lang not in self.locales:
-             # Fallback
-             lang = "pt-BR"
+            lang = self.LANG_MAP.get(lang, "pt-BR")
+            if lang not in self.locales:
+                lang = "pt-BR"
 
         template = self.locales[lang].get(key, "")
+        if not kwargs:
+            return template
         try:
             return template.format(**kwargs)
         except KeyError:
@@ -128,7 +132,12 @@ class Generator:
             target_width = 1440
             target_height = 1080
 
-        if custom_image_path and os.path.exists(custom_image_path):
+        # 🛡️ Sentinel: Enforce 20MB file size limit on custom images to prevent memory exhaustion DoS
+        if (
+            custom_image_path
+            and os.path.exists(custom_image_path)
+            and os.path.getsize(custom_image_path) <= 20 * 1024 * 1024
+        ):
             bg_path = custom_image_path
         else:
             # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
