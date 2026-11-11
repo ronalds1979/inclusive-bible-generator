@@ -33,3 +33,7 @@
 ## 2026-11-10 - Read-only Output Widgets
 **Learning:** In customtkinter, output-only widgets like `CTkTextbox` used alongside programmatic 'copy' buttons can cause user confusion if left editable, as the copy buttons ignore direct edits.
 **Action:** Always initialize output-only `CTkTextbox` widgets with `state="disabled"`. When programmatic updates are needed, temporarily set `state="normal"`, apply changes, and revert to `state="disabled"` to prevent user edits while ensuring programmatic copying works correctly.
+
+## 2024-11-11 - Prevent Race Conditions During Async Loads
+**Learning:** During initial application load, async API fetches can cause UI race conditions if dependent controls are initialized in an active state. For instance, evaluating an input field during live preview might inadvertently enable a button before the required API data is fully loaded.
+**Action:** Initialize dependent API controls (like dropdowns and fetch buttons) with `state="disabled"` and explicitly manage a background loading flag (e.g., `api_loading = True`). Only evaluate and enable these controls once the async fetch resolves.

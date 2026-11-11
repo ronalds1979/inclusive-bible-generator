@@ -23,6 +23,7 @@ class App(ctk.CTk):
 
         self.generator = Generator()
         self.current_lang = "Português (Brasil)"
+        self.api_loading = True
 
         self.title("inclusive-bible-generator")
         self.geometry("1100x750")
@@ -66,12 +67,12 @@ class App(ctk.CTk):
 
         self.bible_version_var = ctk.StringVar()
         self.bible_version_dropdown = ctk.CTkOptionMenu(
-            self.api_frame, values=["-"], variable=self.bible_version_var
+            self.api_frame, values=["-"], variable=self.bible_version_var, state="disabled"
         )
         self.bible_version_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
         self.bible_versions_map = {}
 
-        self.fetch_btn = ctk.CTkButton(self.api_frame, text="Buscar Versículo", command=self.fetch_verse)
+        self.fetch_btn = ctk.CTkButton(self.api_frame, text="Buscar Versículo", command=self.fetch_verse, state="disabled")
         self.fetch_btn.grid(row=1, column=1, padx=(5, 0), sticky="ew")
 
         # Reference Input
@@ -364,11 +365,14 @@ class App(ctk.CTk):
         threading.Thread(target=_fetch, daemon=True).start()
 
     def _update_version_dropdown(self, version_names):
-        self.bible_version_dropdown.configure(values=version_names)
+        self.api_loading = False
+        self.bible_version_dropdown.configure(values=version_names, state="normal")
         self.bible_version_var.set(version_names[0])
         self.status_label.configure(text="")
+        self.trigger_preview()
 
     def _update_version_dropdown_error(self):
+        self.api_loading = False
         self.bible_version_dropdown.configure(values=["-"])
         self.bible_version_var.set("-")
         self.status_label.configure(text="Error loading versions or invalid API key.", text_color="red")
@@ -419,7 +423,7 @@ class App(ctk.CTk):
         reference = self.reference_input.get().strip()
 
         # Dynamically update button states for UX
-        self.fetch_btn.configure(state="normal" if reference else "disabled")
+        self.fetch_btn.configure(state="normal" if reference and not getattr(self, "api_loading", False) else "disabled")
         self.generate_btn.configure(state="normal" if verse and reference else "disabled")
 
         if hasattr(self, '_preview_after_id'):
