@@ -40,3 +40,8 @@
 **Vulnerability:** The application passed user-supplied bible reference and verse texts directly into `edge_tts.Communicate` without escaping HTML/XML elements like `<` and `>`.
 **Learning:** `edge_tts` generates speech from text using SSML (Speech Synthesis Markup Language). Allowing raw `<` and `>` characters permits a malicious user to perform SSML injection (e.g., inputting `<break time='10s'/>` to cause unbounded delays), which leads to backend abuse or DoS.
 **Prevention:** Always sanitize input intended for TTS or SSML engines by escaping characters (`<` to `&lt;`, `>` to `&gt;`, `&` to `&amp;`) to prevent SSML injection vulnerabilities before processing.
+
+## 2025-02-14 - Prevent Memory Exhaustion (DoS) in Cache Collections
+**Vulnerability:** The application stored image and font objects indefinitely in memory cache dictionaries (`_bg_cache`, `_font_cache`) without any size limits or eviction policy.
+**Learning:** In long-running applications (such as desktop applications), continuously adding heavy objects like PIL Images to an unbounded cache dictionary eventually leads to Memory Exhaustion and crash (Denial of Service).
+**Prevention:** Always set a bounds check (e.g. `if len(cache) > MAX_SIZE: cache.clear()`) before inserting new items into in-memory dictionaries that cache heavy objects.

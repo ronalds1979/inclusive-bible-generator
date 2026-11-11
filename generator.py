@@ -166,6 +166,9 @@ class Generator:
             # Add dark overlay
             overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
             img = Image.alpha_composite(img, overlay)
+            # 🛡️ Sentinel: Bound the background cache size to prevent memory exhaustion (DoS)
+            if len(self._bg_cache) > 16:
+                self._bg_cache.clear()
             self._bg_cache[bg_cache_key] = img.copy()
 
         draw = ImageDraw.Draw(img)
@@ -208,6 +211,9 @@ class Generator:
                 except IOError:
                     font_large = ImageFont.load_default()
                     font_small = ImageFont.load_default()
+            # 🛡️ Sentinel: Bound the font cache size to prevent memory exhaustion (DoS)
+            if len(self._font_cache) > 32:
+                self._font_cache.clear()
             self._font_cache[font_cache_key] = (font_large, font_small)
 
         # Simple text wrapping
