@@ -1,5 +1,6 @@
+import re
 import threading
-from tkinter import filedialog
+from tkinter import filedialog, colorchooser
 from PIL import Image
 
 import customtkinter as ctk
@@ -54,7 +55,7 @@ class App(ctk.CTk):
         self.lang_dropdown.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
         # Instructions
-        self.instructions_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", justify="left")
+        self.instructions_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", justify="left", wraplength=460)
         self.instructions_label.grid(row=1, column=0, columnspan=2, pady=(0, 10), sticky="w")
 
         # Bible API Fetch
@@ -139,6 +140,7 @@ class App(ctk.CTk):
         self.color_selector_frame = ctk.CTkFrame(self.font_config_frame, fg_color="transparent")
         self.color_selector_frame.grid(row=1, column=1, padx=5, sticky="ew")
         self.color_selector_frame.grid_columnconfigure((0, 1), weight=1)
+        self.color_selector_frame.grid_columnconfigure(2, weight=0)
 
         self.font_color_dropdown = ctk.CTkOptionMenu(
             self.color_selector_frame,
@@ -149,10 +151,22 @@ class App(ctk.CTk):
 
         self.font_color_entry = ctk.CTkEntry(self.color_selector_frame, textvariable=self.font_color_var, width=80)
         self.font_color_entry.grid(row=0, column=1, padx=(5, 0), sticky="ew")
-        self.font_color_entry.bind("<KeyRelease>", self.trigger_preview)
+        self.font_color_entry.bind("<KeyRelease>", self._on_custom_color_typed)
 
-        # Initially hide the custom entry box, only show when Custom... is selected
+        self.color_picker_btn = ctk.CTkButton(
+            self.color_selector_frame,
+            text="🎨",
+            width=32,
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            command=self.pick_custom_color
+        )
+        self.color_picker_btn.grid(row=0, column=2, padx=(4, 0))
+        self._sync_color_swatch()
+
+        # Initially hide the custom entry box and picker, only show when Custom... is selected
         self.font_color_entry.grid_remove()
+        self.color_picker_btn.grid_remove()
 
         self.font_size_label = ctk.CTkLabel(self.font_config_frame, text="Tamanho da Fonte:")
         self.font_size_label.grid(row=0, column=2, pady=(0, 5), padx=(5, 0), sticky="w")
@@ -233,7 +247,7 @@ class App(ctk.CTk):
         self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption, state="disabled")
         self.copy_caption_btn.grid(row=0, column=1, padx=10)
 
-        self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray")
+        self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", wraplength=460)
         self.status_label.grid(row=15, column=0, columnspan=2, pady=10)
 
         self.alt_text = ""
@@ -346,11 +360,13 @@ class App(ctk.CTk):
 
     def load_bible_versions(self, event=None):
         def _fetch():
-            self.after(0, lambda: self.status_label.configure(text="Loading Bible versions...", text_color="gray"))
+            lang = self.get_lang_key()
+            loading_msg = self.generator.get_locale_string(lang, "loading_versions_msg")
+            self.after(0, lambda: self.status_label.configure(text=loading_msg, text_color="gray"))
 
             lang_code = "pt-BR"
-            if "en" in self.get_lang_key(): lang_code = "en"
-            elif "es" in self.get_lang_key(): lang_code = "es"
+            if "en" in lang: lang_code = "en"
+            elif "es" in lang: lang_code = "es"
 
             # App key is ignored now as we use bible-api.com
             versions = GetBibleAPI.get_versions(lang=lang_code)
@@ -375,28 +391,30 @@ class App(ctk.CTk):
         self.api_loading = False
         self.bible_version_dropdown.configure(values=["-"])
         self.bible_version_var.set("-")
-        self.status_label.configure(text="Error loading versions or invalid API key.", text_color="red")
+        lang = self.get_lang_key()
+        self.status_label.configure(text=self.generator.get_locale_string(lang, "error_loading_versions_msg"), text_color="red")
 
     def fetch_verse(self):
         version_name = self.bible_version_var.get()
         reference = self.reference_input.get().strip()
+        lang = self.get_lang_key()
 
         if version_name == "-" or not reference:
-            self.status_label.configure(text="Please provide Version, and Reference.", text_color="red")
+            self.status_label.configure(text=self.generator.get_locale_string(lang, "missing_version_ref_msg"), text_color="red")
             return
 
         bible_id = self.bible_versions_map.get(version_name)
         if not bible_id:
             return
 
-        lang = self.get_lang_key()
         original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
         self.fetch_btn.configure(state="disabled", text="⏳ " + original_text)
 
         def _fetch():
-            self.after(0, lambda: self.status_label.configure(text="Fetching verse...", text_color="gray"))
+            fetching_msg = self.generator.get_locale_string(lang, "fetching_verse_msg")
+            self.after(0, lambda: self.status_label.configure(text=fetching_msg, text_color="gray"))
 
-            content = GetBibleAPI.get_passage(bible_id, reference, self.get_lang_key())
+            content = GetBibleAPI.get_passage(bible_id, reference, lang)
             self.after(0, lambda: self._update_verse_ui(content))
 
         threading.Thread(target=_fetch, daemon=True).start()
@@ -408,7 +426,7 @@ class App(ctk.CTk):
         if content:
             self.verse_input.delete("1.0", "end")
             self.verse_input.insert("1.0", content)
-            self.status_label.configure(text="Verse fetched successfully.", text_color="green")
+            self.status_label.configure(text=self.generator.get_locale_string(lang, "verse_fetched_msg"), text_color="green")
 
             self.fetch_btn.configure(text="✓ " + original_text)
             self.after(2000, lambda: self.fetch_btn.configure(text=original_text))
@@ -416,7 +434,7 @@ class App(ctk.CTk):
             self.trigger_preview()
         else:
             self.fetch_btn.configure(text=original_text)
-            self.status_label.configure(text="Error fetching verse. Check reference format (e.g., JHN.3.16).", text_color="red")
+            self.status_label.configure(text=self.generator.get_locale_string(lang, "error_fetching_verse_msg"), text_color="red")
 
     def trigger_preview(self, *args):
         lang = self.get_lang_key()
@@ -434,12 +452,51 @@ class App(ctk.CTk):
             self.after_cancel(self._preview_after_id)
         self._preview_after_id = self.after(500, self.preview_content)
 
+    HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+    @staticmethod
+    def _contrast_text_color(hex_color):
+        hex_val = hex_color.lstrip("#")
+        if len(hex_val) == 3:
+            hex_val = "".join(c * 2 for c in hex_val)
+        r, g, b = int(hex_val[0:2], 16), int(hex_val[2:4], 16), int(hex_val[4:6], 16)
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        return "#000000" if luminance > 0.5 else "#FFFFFF"
+
+    def _sync_color_swatch(self):
+        color = self.font_color_var.get().strip()
+        if self.HEX_COLOR_RE.match(color):
+            self.color_picker_btn.configure(
+                fg_color=color,
+                hover_color=color,
+                text_color=self._contrast_text_color(color)
+            )
+
+    def _on_custom_color_typed(self, *args):
+        self._sync_color_swatch()
+        self.trigger_preview()
+
+    def pick_custom_color(self):
+        lang = self.get_lang_key()
+        current = self.font_color_var.get().strip()
+        initial = current if self.HEX_COLOR_RE.match(current) else "#FFFFFF"
+        _, hex_color = colorchooser.askcolor(
+            initialcolor=initial,
+            title=self.generator.get_locale_string(lang, "color_picker_title")
+        )
+        if hex_color:
+            self.font_color_var.set(hex_color.upper())
+            self._sync_color_swatch()
+            self.trigger_preview()
+
     def on_color_selected(self, choice):
         lang = self.get_lang_key()
         custom_label = self.generator.get_locale_string(lang, "color_custom")
 
         if choice == custom_label:
             self.font_color_entry.grid()
+            self.color_picker_btn.grid()
+            self._sync_color_swatch()
         else:
             color_map = {
                 self.generator.get_locale_string(lang, "color_white"): "#FFFFFF",
@@ -450,6 +507,7 @@ class App(ctk.CTk):
             hex_color = color_map.get(choice, "#FFFFFF")
             self.font_color_var.set(hex_color)
             self.font_color_entry.grid_remove()
+            self.color_picker_btn.grid_remove()
             self.trigger_preview()
 
     def clear_custom_image(self, _choice):
@@ -531,7 +589,8 @@ class App(ctk.CTk):
             self.preview_label.image = ctk_img
         except Exception:
             # 🛡️ Sentinel: Fail securely - don't expose sensitive stack traces to UI
-            self.preview_label.configure(image="", text="Error rendering preview. Please check your inputs.")
+            lang = self.get_lang_key()
+            self.preview_label.configure(image="", text=self.generator.get_locale_string(lang, "error_preview_msg"))
 
     def generate_content(self):
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path = self.get_current_params()
@@ -549,7 +608,7 @@ class App(ctk.CTk):
         image_save_path = filedialog.asksaveasfilename(
             defaultextension=".png",
             initialfile=default_image_filename,
-            title=self.generator.get_locale_string(lang, "save_btn") + " - Imagem",
+            title=f"{self.generator.get_locale_string(lang, 'save_btn')} - {self.generator.get_locale_string(lang, 'save_image_suffix')}",
             filetypes=[("PNG files", "*.png"), ("All files", "*.*")]
         )
         if not image_save_path:
@@ -561,13 +620,13 @@ class App(ctk.CTk):
             audio_save_path = filedialog.asksaveasfilename(
                 defaultextension=".mp3",
                 initialfile=default_audio_filename,
-                title=self.generator.get_locale_string(lang, "save_btn") + " - Áudio",
+                title=f"{self.generator.get_locale_string(lang, 'save_btn')} - {self.generator.get_locale_string(lang, 'save_audio_suffix')}",
                 filetypes=[("MP3 files", "*.mp3"), ("All files", "*.*")]
             )
             if not audio_save_path:
                 return
 
-        self.status_label.configure(text="Gerando arquivos...", text_color="gray")
+        self.status_label.configure(text=self.generator.get_locale_string(lang, "generating_files_msg"), text_color="gray")
         original_generate_text = self.generator.get_locale_string(lang, "generate_btn")
         self.generate_btn.configure(state="disabled", text="⏳ " + original_generate_text)
         self.update()
@@ -593,15 +652,16 @@ class App(ctk.CTk):
                     gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
                     try:
                         audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key, custom_output_path=audio_save_path)
-                        audio_msg = f"\nÁudio salvo em: {os.path.abspath(audio_path)}"
+                        audio_msg = self.generator.get_locale_string(lang, "audio_saved_msg").format(path=os.path.abspath(audio_path))
                     except Exception:
                         # 🛡️ Sentinel: Do not leak exception strings
-                        audio_msg = f"\nErro ao gerar áudio. Verifique as configurações."
+                        audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
 
                 self.after(0, self._on_generate_complete, lang, audio_msg)
             except Exception:
                 # 🛡️ Sentinel: Catch unhandled thread exceptions and update UI generically
-                self.after(0, lambda: self.status_label.configure(text="Ocorreu um erro durante a geração.", text_color="red"))
+                err_msg = self.generator.get_locale_string(lang, "generate_error_msg")
+                self.after(0, lambda: self.status_label.configure(text=err_msg, text_color="red"))
                 self.after(0, lambda: self.generate_btn.configure(state="normal", text=original_generate_text))
 
         threading.Thread(target=_process, daemon=True).start()

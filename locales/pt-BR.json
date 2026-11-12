@@ -38,5 +38,19 @@
   "color_gold": "Dourado",
   "color_red": "Vermelho",
   "color_custom": "Personalizado...",
-  "preview_empty_state": "Insira um versículo e referência para ver a prévia."
+  "preview_empty_state": "Insira um versículo e referência para ver a prévia.",
+  "color_picker_title": "Escolher Cor do Texto",
+  "loading_versions_msg": "Carregando versões da Bíblia...",
+  "error_loading_versions_msg": "Erro ao carregar versões. Verifique sua conexão.",
+  "missing_version_ref_msg": "Por favor, informe a Versão e a Referência.",
+  "fetching_verse_msg": "Buscando versículo...",
+  "verse_fetched_msg": "Versículo encontrado com sucesso.",
+  "error_fetching_verse_msg": "Erro ao buscar versículo. Verifique a referência (ex: Salmos 119:105).",
+  "error_preview_msg": "Erro ao gerar prévia. Verifique os campos informados.",
+  "generating_files_msg": "Gerando arquivos...",
+  "audio_saved_msg": "\nÁudio salvo em: {path}",
+  "audio_error_msg": "\nErro ao gerar áudio. Verifique as configurações.",
+  "generate_error_msg": "Ocorreu um erro durante a geração.",
+  "save_image_suffix": "Imagem",
+  "save_audio_suffix": "Áudio"
 }

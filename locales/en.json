@@ -38,5 +38,19 @@
   "color_gold": "Gold",
   "color_red": "Red",
   "color_custom": "Custom...",
-  "preview_empty_state": "Enter a verse and reference to see the preview."
+  "preview_empty_state": "Enter a verse and reference to see the preview.",
+  "color_picker_title": "Choose Text Color",
+  "loading_versions_msg": "Loading Bible versions...",
+  "error_loading_versions_msg": "Error loading versions. Check your connection.",
+  "missing_version_ref_msg": "Please provide Version and Reference.",
+  "fetching_verse_msg": "Fetching verse...",
+  "verse_fetched_msg": "Verse fetched successfully.",
+  "error_fetching_verse_msg": "Error fetching verse. Check reference format (e.g., Psalm 119:105).",
+  "error_preview_msg": "Error rendering preview. Please check your inputs.",
+  "generating_files_msg": "Generating files...",
+  "audio_saved_msg": "\nAudio saved to: {path}",
+  "audio_error_msg": "\nError generating audio. Please check settings.",
+  "generate_error_msg": "An error occurred during generation.",
+  "save_image_suffix": "Image",
+  "save_audio_suffix": "Audio"
 }
