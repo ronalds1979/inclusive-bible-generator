@@ -1,5 +1,6 @@
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from tkinter import filedialog, colorchooser
 from PIL import Image
 
@@ -359,26 +360,20 @@ class App(ctk.CTk):
             self.preview_label.configure(text=self.generator.get_locale_string(lang, "preview_empty_state"))
 
     def load_bible_versions(self, event=None):
-        def _fetch():
-            lang = self.get_lang_key()
-            loading_msg = self.generator.get_locale_string(lang, "loading_versions_msg")
-            self.after(0, lambda: self.status_label.configure(text=loading_msg, text_color="gray"))
+        # ⚡ Bolt: GetBibleAPI.get_versions() is an in-memory lookup; avoid spawning a thread & flickering UI
+        lang = self.get_lang_key()
+        lang_code = "pt-BR"
+        if "en" in lang:
+            lang_code = "en"
+        elif "es" in lang:
+            lang_code = "es"
 
-            lang_code = "pt-BR"
-            if "en" in lang: lang_code = "en"
-            elif "es" in lang: lang_code = "es"
-
-            # App key is ignored now as we use bible-api.com
-            versions = GetBibleAPI.get_versions(lang=lang_code)
-
-            if versions:
-                self.bible_versions_map = {v["name"]: v["id"] for v in versions}
-                version_names = list(self.bible_versions_map.keys())
-                self.after(0, lambda: self._update_version_dropdown(version_names))
-            else:
-                self.after(0, lambda: self._update_version_dropdown_error())
-
-        threading.Thread(target=_fetch, daemon=True).start()
+        versions = GetBibleAPI.get_versions(lang=lang_code)
+        if versions:
+            self.bible_versions_map = {v["name"]: v["id"] for v in versions}
+            self._update_version_dropdown(list(self.bible_versions_map.keys()))
+        else:
+            self._update_version_dropdown_error()
 
     def _update_version_dropdown(self, version_names):
         self.api_loading = False
@@ -437,16 +432,28 @@ class App(ctk.CTk):
             self.status_label.configure(text=self.generator.get_locale_string(lang, "error_fetching_verse_msg"), text_color="red")
 
     def trigger_preview(self, *args):
+        # ⚡ Bolt: Skip redundant CustomTkinter .configure() redraws when slider values or button states are unchanged
         lang = self.get_lang_key()
-        self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {int(self.font_size_var.get())}")
-        self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {int(self.y_offset_var.get())}")
+        font_size = int(self.font_size_var.get())
+        y_offset = int(self.y_offset_var.get())
+
+        if getattr(self, "_last_label_state", None) != (lang, font_size, y_offset):
+            self._last_label_state = (lang, font_size, y_offset)
+            self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {font_size}")
+            self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {y_offset}")
 
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
 
-        # Dynamically update button states for UX
-        self.fetch_btn.configure(state="normal" if reference and not getattr(self, "api_loading", False) else "disabled")
-        self.generate_btn.configure(state="normal" if verse and reference else "disabled")
+        fetch_state = "normal" if reference and not getattr(self, "api_loading", False) else "disabled"
+        if getattr(self, "_last_fetch_state", None) != fetch_state:
+            self._last_fetch_state = fetch_state
+            self.fetch_btn.configure(state=fetch_state)
+
+        generate_state = "normal" if verse and reference else "disabled"
+        if getattr(self, "_last_generate_state", None) != generate_state:
+            self._last_generate_state = generate_state
+            self.generate_btn.configure(state=generate_state)
 
         if hasattr(self, '_preview_after_id'):
             self.after_cancel(self._preview_after_id)
@@ -633,29 +640,47 @@ class App(ctk.CTk):
 
         def _process():
             try:
-                # Generate Image to Disk
-                pil_img = self.generator.generate_image(
-                    self.current_lang, verse, reference, background_filename=background,
-                    custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
-                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
-                )
-                pil_img.save(image_save_path, "PNG")
-                self.last_generated_image_path = image_save_path
-
-                # Generate Texts
-                self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
-
-                # Generate Audio
-                audio_msg = ""
+                # ⚡ Bolt: Run network-bound TTS audio generation concurrently with CPU-bound image rendering/PNG save
+                audio_future = None
+                executor = None
                 if self.audio_generate_var.get() and audio_save_path:
                     gender_selection = self.gender_var.get()
                     gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
-                    try:
-                        audio_path = self.generator.generate_audio(self.current_lang, verse, reference, gender=gender_key, custom_output_path=audio_save_path)
-                        audio_msg = self.generator.get_locale_string(lang, "audio_saved_msg").format(path=os.path.abspath(audio_path))
-                    except Exception:
-                        # 🛡️ Sentinel: Do not leak exception strings
-                        audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
+                    executor = ThreadPoolExecutor(max_workers=1)
+                    audio_future = executor.submit(
+                        self.generator.generate_audio,
+                        self.current_lang,
+                        verse,
+                        reference,
+                        gender=gender_key,
+                        custom_output_path=audio_save_path,
+                    )
+
+                try:
+                    # Generate Image to Disk
+                    pil_img = self.generator.generate_image(
+                        self.current_lang, verse, reference, background_filename=background,
+                        custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
+                        font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+                    )
+                    pil_img.save(image_save_path, "PNG")
+                    self.last_generated_image_path = image_save_path
+
+                    # Generate Texts
+                    self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
+
+                    # Collect Audio result
+                    audio_msg = ""
+                    if audio_future is not None:
+                        try:
+                            audio_path = audio_future.result()
+                            audio_msg = self.generator.get_locale_string(lang, "audio_saved_msg").format(path=os.path.abspath(audio_path))
+                        except Exception:
+                            # 🛡️ Sentinel: Do not leak exception strings
+                            audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
+                finally:
+                    if executor is not None:
+                        executor.shutdown(wait=False)
 
                 self.after(0, self._on_generate_complete, lang, audio_msg)
             except Exception:

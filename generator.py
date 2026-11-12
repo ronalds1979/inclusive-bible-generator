@@ -20,6 +20,8 @@ class Generator:
 
     SAFE_REF_MAP = str.maketrans(" :/\\", "____")
     SSML_MAP = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
+    # ⚡ Bolt: Precompute 50% darken lookup table for opaque RGB backgrounds
+    DARKEN_LUT = [int(i * 127 / 255) for i in range(256)] * 3
 
     def __init__(self):
         self.locales = {}
@@ -151,33 +153,35 @@ class Generator:
             img = self._bg_cache[bg_cache_key].copy()
         else:
             try:
-                img = Image.open(bg_path).convert("RGBA")
+                # ⚡ Bolt: Crop and resize before mode conversion/compositing to avoid processing discarded pixels
+                with Image.open(bg_path) as raw_img:
+                    img_w, img_h = raw_img.size
+                    img_ratio = img_w / img_h
+                    target_ratio = target_width / target_height
+
+                    if img_ratio > target_ratio:
+                        new_w = int(img_h * target_ratio)
+                        left = int((img_w - new_w) / 2)
+                        img = raw_img.crop((left, 0, left + new_w, img_h))
+                    elif img_ratio < target_ratio:
+                        new_h = int(img_w / target_ratio)
+                        top = int((img_h - new_h) / 2)
+                        img = raw_img.crop((0, top, img_w, top + new_h))
+                    else:
+                        img = raw_img
+
+                    img = img.resize((target_width, target_height))
+                    if img.mode in ('RGBA', 'LA', 'PA'):
+                        img = img.convert("RGBA")
+                        overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
+                        img = Image.alpha_composite(img, overlay)
+                    else:
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        img = img.point(self.DARKEN_LUT)
             except Exception:
-                img = Image.new('RGBA', (target_width, target_height), color=(73, 109, 137, 255))
+                img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
 
-            # Center crop and resize
-            img_w, img_h = img.size
-            img_ratio = img_w / img_h
-            target_ratio = target_width / target_height
-
-            if img_ratio > target_ratio:
-                # Image is wider than target ratio
-                new_w = int(img_h * target_ratio)
-                left = int((img_w - new_w) / 2)
-                right = left + new_w
-                img = img.crop((left, 0, right, img_h))
-            elif img_ratio < target_ratio:
-                # Image is taller than target ratio
-                new_h = int(img_w / target_ratio)
-                top = int((img_h - new_h) / 2)
-                bottom = top + new_h
-                img = img.crop((0, top, img_w, bottom))
-
-            img = img.resize((target_width, target_height))
-
-            # Add dark overlay
-            overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
-            img = Image.alpha_composite(img, overlay)
             # 🛡️ Sentinel: Bound the background cache size to prevent memory exhaustion (DoS)
             if len(self._bg_cache) > 16:
                 self._bg_cache.clear()
