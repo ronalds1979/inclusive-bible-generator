@@ -20,6 +20,13 @@ class Generator:
 
     SAFE_REF_MAP = str.maketrans(" :/\\", "____")
     SSML_MAP = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
+
+    @staticmethod
+    def sanitize_filename(name):
+        """Sanitize a string into a safe single-segment filename."""
+        cleaned = re.sub(r'[^\w\-]+', '_', (name or "").lower()).strip('_')
+        cleaned = os.path.basename(cleaned)[:80]
+        return cleaned or "verse"
     # ⚡ Bolt: Precompute 50% darken lookup table for opaque RGB backgrounds
     DARKEN_LUT = [int(i * 127 / 255) for i in range(256)] * 3
 
@@ -99,7 +106,7 @@ class Generator:
         if custom_output_path:
             output_path = custom_output_path
         else:
-            safe_ref = reference.lower().translate(self.SAFE_REF_MAP)
+            safe_ref = self.sanitize_filename(reference)
             filename = f"{safe_ref}_{lang_code}.mp3"
             output_path = os.path.join(self.output_dir, filename)
 
@@ -210,20 +217,21 @@ class Generator:
         # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
         safe_font_type = os.path.basename(font_type)
         font_path = os.path.join(self.fonts_dir, safe_font_type)
+        safe_font_size = max(8, min(300, int(font_size)))
 
-        font_cache_key = (font_path, font_size)
+        font_cache_key = (font_path, safe_font_size)
         if font_cache_key in self._font_cache:
             font_large, font_small = self._font_cache[font_cache_key]
         else:
             try:
-                font_large = ImageFont.truetype(font_path, int(font_size))
-                font_small = ImageFont.truetype(font_path, int(font_size * 0.66))
+                font_large = ImageFont.truetype(font_path, safe_font_size)
+                font_small = ImageFont.truetype(font_path, max(8, int(safe_font_size * 0.66)))
             except IOError:
                 # Fallback
                 default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
                 try:
-                    font_large = ImageFont.truetype(default_font_path, int(font_size))
-                    font_small = ImageFont.truetype(default_font_path, int(font_size * 0.66))
+                    font_large = ImageFont.truetype(default_font_path, safe_font_size)
+                    font_small = ImageFont.truetype(default_font_path, max(8, int(safe_font_size * 0.66)))
                 except IOError:
                     font_large = ImageFont.load_default()
                     font_small = ImageFont.load_default()
@@ -260,7 +268,7 @@ class Generator:
              ref_width, ref_height = draw.textsize(reference, font=font_small)
 
         x_ref = (target_width - ref_width) / 2
-        y_ref = y_text + verse_height + int(font_size * 0.66)
+        y_ref = y_text + verse_height + int(safe_font_size * 0.66)
 
         draw.text((x_ref, y_ref), reference, font=font_small, fill=rgba_color)
 

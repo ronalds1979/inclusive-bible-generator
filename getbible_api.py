@@ -103,6 +103,9 @@ class GetBibleAPI:
                 start_idx = int(start_verse) - 1
                 end_idx = int(end_verse) if end_verse else int(start_verse)
 
+                if end_idx <= start_idx:
+                    return None
+
                 if 0 <= start_idx < len(verses):
                     selected_verses = verses[start_idx:end_idx]
                     return " ".join([v.get("text", "") for v in selected_verses]).strip()
