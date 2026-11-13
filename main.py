@@ -163,17 +163,25 @@ class App(ctk.CTk):
             command=self.pick_custom_color
         )
         self.color_picker_btn.grid(row=0, column=2, padx=(4, 0))
+        self.color_picker_btn.bind(
+            "<Enter>",
+            lambda _e: self.status_label.configure(
+                text=self.generator.get_locale_string(self.get_lang_key(), "color_picker_title"),
+                text_color="gray",
+            ),
+        )
+        self.color_picker_btn.bind("<Leave>", lambda _e: self.status_label.configure(text=""))
         self._sync_color_swatch()
 
         # Initially hide the custom entry box and picker, only show when Custom... is selected
         self.font_color_entry.grid_remove()
         self.color_picker_btn.grid_remove()
 
-        self.font_size_label = ctk.CTkLabel(self.font_config_frame, text="Tamanho da Fonte:")
+        self.font_size_label = ctk.CTkLabel(self.font_config_frame, text="Tamanho da Fonte: 60")
         self.font_size_label.grid(row=0, column=2, pady=(0, 5), padx=(5, 0), sticky="w")
 
         self.font_size_var = ctk.IntVar(value=60)
-        self.font_size_slider = ctk.CTkSlider(self.font_config_frame, from_=20, to=120, variable=self.font_size_var, command=self.trigger_preview)
+        self.font_size_slider = ctk.CTkSlider(self.font_config_frame, from_=20, to=120, variable=self.font_size_var, command=self._on_font_size_changed)
         self.font_size_slider.grid(row=1, column=2, padx=(5, 0), sticky="ew")
 
         # Bottom customization block
@@ -195,11 +203,28 @@ class App(ctk.CTk):
         )
         self.aspect_ratio_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
 
-        self.y_offset_label = ctk.CTkLabel(self.bottom_config_frame, text="Posição Vertical (Y):")
-        self.y_offset_label.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="w")
+        self.y_offset_header = ctk.CTkFrame(self.bottom_config_frame, fg_color="transparent")
+        self.y_offset_header.grid(row=0, column=1, pady=(0, 5), padx=5, sticky="ew")
+        self.y_offset_header.grid_columnconfigure(0, weight=1)
+
+        self.y_offset_label = ctk.CTkLabel(self.y_offset_header, text="Posição Vertical (Y): 0")
+        self.y_offset_label.grid(row=0, column=0, sticky="w")
+
+        self.reset_y_btn = ctk.CTkButton(
+            self.y_offset_header,
+            text="↺ 0",
+            width=44,
+            height=22,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            text_color=("gray20", "gray85"),
+            command=self.reset_y_offset
+        )
+        self.reset_y_btn.grid(row=0, column=1, sticky="e")
 
         self.y_offset_var = ctk.IntVar(value=0)
-        self.y_offset_slider = ctk.CTkSlider(self.bottom_config_frame, from_=-400, to=400, variable=self.y_offset_var, command=self.trigger_preview)
+        self.y_offset_slider = ctk.CTkSlider(self.bottom_config_frame, from_=-400, to=400, variable=self.y_offset_var, command=self._on_y_offset_changed)
         self.y_offset_slider.grid(row=1, column=1, padx=5, sticky="ew")
 
         # Audio Configuration block
@@ -267,6 +292,20 @@ class App(ctk.CTk):
         # Initial UI Update
         self.update_ui_texts()
         self.load_bible_versions()
+
+    def _on_font_size_changed(self, value):
+        lang = self.get_lang_key()
+        self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {int(float(value))}")
+        self.trigger_preview()
+
+    def _on_y_offset_changed(self, value):
+        lang = self.get_lang_key()
+        self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {int(float(value))}")
+        self.trigger_preview()
+
+    def reset_y_offset(self):
+        self.y_offset_var.set(0)
+        self._on_y_offset_changed(0)
 
     def toggle_audio_options(self):
         if self.audio_generate_var.get():
