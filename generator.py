@@ -162,6 +162,10 @@ class Generator:
             try:
                 # ⚡ Bolt: Crop and resize before mode conversion/compositing to avoid processing discarded pixels
                 with Image.open(bg_path) as raw_img:
+                    # ⚡ Bolt: Use libjpeg DCT downscaling during decompression for large JPEGs
+                    if raw_img.format == "JPEG":
+                        raw_img.draft("RGB", (target_width, target_height))
+
                     img_w, img_h = raw_img.size
                     img_ratio = img_w / img_h
                     target_ratio = target_width / target_height
@@ -179,13 +183,13 @@ class Generator:
 
                     img = img.resize((target_width, target_height))
                     if img.mode in ('RGBA', 'LA', 'PA'):
-                        img = img.convert("RGBA")
-                        overlay = Image.new('RGBA', img.size, (0, 0, 0, 128))
-                        img = Image.alpha_composite(img, overlay)
-                    else:
-                        if img.mode != 'RGB':
-                            img = img.convert('RGB')
-                        img = img.point(self.DARKEN_LUT)
+                        base = Image.new('RGB', img.size, (36, 54, 68))
+                        rgba = img.convert('RGBA')
+                        base.paste(rgba, mask=rgba.getchannel('A'))
+                        img = base
+                    elif img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    img = img.point(self.DARKEN_LUT)
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
 

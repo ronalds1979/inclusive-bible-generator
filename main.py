@@ -294,13 +294,9 @@ class App(ctk.CTk):
         self.load_bible_versions()
 
     def _on_font_size_changed(self, value):
-        lang = self.get_lang_key()
-        self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {int(float(value))}")
         self.trigger_preview()
 
     def _on_y_offset_changed(self, value):
-        lang = self.get_lang_key()
-        self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {int(float(value))}")
         self.trigger_preview()
 
     def reset_y_offset(self):
@@ -607,6 +603,7 @@ class App(ctk.CTk):
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path = current_params
 
         if not verse or not reference:
+            self._preview_request_id = getattr(self, "_preview_request_id", 0) + 1
             self.preview_label.configure(image="", text=self.generator.get_locale_string(self.get_lang_key(), "preview_empty_state"))
             self.preview_label.image = None
             return
@@ -617,26 +614,38 @@ class App(ctk.CTk):
             return
 
         self._last_preview_params = current_params
+        request_id = getattr(self, "_preview_request_id", 0) + 1
+        self._preview_request_id = request_id
+        current_lang = self.current_lang
 
-        try:
-            pil_img = self.generator.generate_image(
-                self.current_lang, verse, reference, background_filename=background,
-                custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
-                font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
-            )
+        def _render_preview():
+            try:
+                pil_img = self.generator.generate_image(
+                    current_lang, verse, reference, background_filename=background,
+                    custom_image_path=custom_image_path, aspect_ratio=aspect_ratio,
+                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+                )
+                preview_max_size = (500, 500)
+                # ⚡ Bolt: Use BILINEAR instead of LANCZOS for live previews (~40% faster)
+                pil_img.thumbnail(preview_max_size, Image.Resampling.BILINEAR)
+                self.after(0, self._apply_preview_result, request_id, pil_img, False)
+            except Exception:
+                self.after(0, self._apply_preview_result, request_id, None, True)
 
-            preview_max_size = (500, 500)
-            # ⚡ Bolt: Use BILINEAR instead of LANCZOS for live previews.
-            # It provides similar preview quality but runs ~40% faster on the main UI thread.
-            pil_img.thumbnail(preview_max_size, Image.Resampling.BILINEAR)
+        # ⚡ Bolt: Offload preview rendering from the Tkinter main thread
+        threading.Thread(target=_render_preview, daemon=True).start()
 
-            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
-            self.preview_label.configure(image=ctk_img, text="")
-            self.preview_label.image = ctk_img
-        except Exception:
+    def _apply_preview_result(self, request_id, pil_img, had_error):
+        if request_id != getattr(self, "_preview_request_id", 0):
+            return
+        if had_error or pil_img is None:
             # 🛡️ Sentinel: Fail securely - don't expose sensitive stack traces to UI
             lang = self.get_lang_key()
             self.preview_label.configure(image="", text=self.generator.get_locale_string(lang, "error_preview_msg"))
+            return
+        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
+        self.preview_label.configure(image=ctk_img, text="")
+        self.preview_label.image = ctk_img
 
     def generate_content(self):
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path = self.get_current_params()
@@ -681,12 +690,12 @@ class App(ctk.CTk):
             try:
                 # ⚡ Bolt: Run network-bound TTS audio generation concurrently with CPU-bound image rendering/PNG save
                 audio_future = None
-                executor = None
                 if self.audio_generate_var.get() and audio_save_path:
                     gender_selection = self.gender_var.get()
                     gender_key = "Male" if "Male" in gender_selection or "Masculin" in gender_selection else "Female"
-                    executor = ThreadPoolExecutor(max_workers=1)
-                    audio_future = executor.submit(
+                    if not hasattr(self, "_audio_executor"):
+                        self._audio_executor = ThreadPoolExecutor(max_workers=1)
+                    audio_future = self._audio_executor.submit(
                         self.generator.generate_audio,
                         self.current_lang,
                         verse,
@@ -695,31 +704,27 @@ class App(ctk.CTk):
                         custom_output_path=audio_save_path,
                     )
 
-                try:
-                    # Generate Image to Disk
-                    pil_img = self.generator.generate_image(
-                        self.current_lang, verse, reference, background_filename=background,
-                        custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
-                        font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
-                    )
-                    pil_img.save(image_save_path, "PNG")
-                    self.last_generated_image_path = image_save_path
+                # Generate Image to Disk
+                pil_img = self.generator.generate_image(
+                    self.current_lang, verse, reference, background_filename=background,
+                    custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
+                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+                )
+                pil_img.save(image_save_path, "PNG")
+                self.last_generated_image_path = image_save_path
 
-                    # Generate Texts
-                    self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
+                # Generate Texts
+                self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
 
-                    # Collect Audio result
-                    audio_msg = ""
-                    if audio_future is not None:
-                        try:
-                            audio_path = audio_future.result()
-                            audio_msg = self.generator.get_locale_string(lang, "audio_saved_msg").format(path=os.path.abspath(audio_path))
-                        except Exception:
-                            # 🛡️ Sentinel: Do not leak exception strings
-                            audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
-                finally:
-                    if executor is not None:
-                        executor.shutdown(wait=False)
+                # Collect Audio result
+                audio_msg = ""
+                if audio_future is not None:
+                    try:
+                        audio_path = audio_future.result()
+                        audio_msg = self.generator.get_locale_string(lang, "audio_saved_msg").format(path=os.path.abspath(audio_path))
+                    except Exception:
+                        # 🛡️ Sentinel: Do not leak exception strings
+                        audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
 
                 self.after(0, self._on_generate_complete, lang, audio_msg)
             except Exception:
