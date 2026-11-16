@@ -1,9 +1,13 @@
 import os
 import json
 import asyncio
+import threading
 import edge_tts
 import re
 from PIL import Image, ImageDraw, ImageFont
+
+Image.MAX_IMAGE_PIXELS = 25_000_000
+MAX_IMAGE_PIXELS = 25_000_000
 
 AUDIO_REF_PATTERN = re.compile(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)")
 HEX_COLOR_PATTERN = re.compile(r'^#?(?:[0-9a-fA-F]{3}){1,2}$')
@@ -37,6 +41,7 @@ class Generator:
         self.backgrounds_dir = os.path.join("assets", "backgrounds")
         self.output_dir = "output"
         os.makedirs(self.output_dir, exist_ok=True)
+        self._cache_lock = threading.Lock()
         self._bg_cache = {}
         self._font_cache = {}
         self._wrap_cache = {}
@@ -156,12 +161,16 @@ class Generator:
                 bg_path = os.path.join(self.backgrounds_dir, "default.png")
 
         bg_cache_key = (bg_path, target_width, target_height)
-        if bg_cache_key in self._bg_cache:
-            img = self._bg_cache[bg_cache_key].copy()
-        else:
+        with self._cache_lock:
+            cached_bg = self._bg_cache.get(bg_cache_key)
+            img = cached_bg.copy() if cached_bg is not None else None
+        if img is None:
             try:
                 # ⚡ Bolt: Crop and resize before mode conversion/compositing to avoid processing discarded pixels
-                with Image.open(bg_path) as raw_img:
+                with Image.open(bg_path, formats=["PNG", "JPEG"]) as raw_img:
+                    if raw_img.width * raw_img.height > MAX_IMAGE_PIXELS:
+                        raise ValueError("Image dimensions exceed maximum allowed pixels")
+
                     # ⚡ Bolt: Use libjpeg DCT downscaling during decompression for large JPEGs
                     if raw_img.format == "JPEG":
                         raw_img.draft("RGB", (target_width, target_height))
@@ -194,9 +203,10 @@ class Generator:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
 
             # 🛡️ Sentinel: Bound the background cache size to prevent memory exhaustion (DoS)
-            if len(self._bg_cache) > 16:
-                self._bg_cache.clear()
-            self._bg_cache[bg_cache_key] = img.copy()
+            with self._cache_lock:
+                if len(self._bg_cache) > 16:
+                    self._bg_cache.clear()
+                self._bg_cache[bg_cache_key] = img.copy()
 
         draw = ImageDraw.Draw(img)
 
@@ -224,8 +234,10 @@ class Generator:
         safe_font_size = max(8, min(300, int(font_size)))
 
         font_cache_key = (font_path, safe_font_size)
-        if font_cache_key in self._font_cache:
-            font_large, font_small = self._font_cache[font_cache_key]
+        with self._cache_lock:
+            cached_fonts = self._font_cache.get(font_cache_key)
+        if cached_fonts is not None:
+            font_large, font_small = cached_fonts
         else:
             try:
                 font_large = ImageFont.truetype(font_path, safe_font_size)
@@ -240,9 +252,10 @@ class Generator:
                     font_large = ImageFont.load_default()
                     font_small = ImageFont.load_default()
             # 🛡️ Sentinel: Bound the font cache size to prevent memory exhaustion (DoS)
-            if len(self._font_cache) > 32:
-                self._font_cache.clear()
-            self._font_cache[font_cache_key] = (font_large, font_small)
+            with self._cache_lock:
+                if len(self._font_cache) > 32:
+                    self._font_cache.clear()
+                self._font_cache[font_cache_key] = (font_large, font_small)
 
         # Simple text wrapping
         max_width = int(target_width * 0.85) # dynamic max width
@@ -283,8 +296,9 @@ class Generator:
         # to completely bypass layout process when inputs haven't changed.
         # Use id(font) to avoid font.getname() exceptions and ensure uniqueness.
         cache_key = (text, id(font), max_width)
-        if cache_key in self._wrap_cache:
-            return self._wrap_cache[cache_key]
+        with self._cache_lock:
+            if cache_key in self._wrap_cache:
+                return self._wrap_cache[cache_key]
 
         # ⚡ Bolt: Measure words individually and accumulate widths
         # to avoid O(n²) string concatenation and re-measuring during wrap.
@@ -325,7 +339,8 @@ class Generator:
 
         wrapped = '\n'.join(lines)
         # ⚡ Bolt: Bound the cache size to prevent memory leaks
-        if len(self._wrap_cache) > 256:
-            self._wrap_cache.clear()
-        self._wrap_cache[cache_key] = wrapped
+        with self._cache_lock:
+            if len(self._wrap_cache) > 256:
+                self._wrap_cache.clear()
+            self._wrap_cache[cache_key] = wrapped
         return wrapped

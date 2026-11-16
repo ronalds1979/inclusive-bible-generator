@@ -1,12 +1,19 @@
+import json
+import logging
 import requests
 import re
 import functools
 import urllib.parse
 from book_mapping import BOOK_MAPPING
 
+logger = logging.getLogger(__name__)
+
+
 class GetBibleAPI:
     BASE_URL = "https://api.getbible.net/v2"
+    MAX_RESPONSE_BYTES = 2 * 1024 * 1024  # 2 MB
     _session = requests.Session()
+    _session.trust_env = False
 
     LOWERCASE_BOOK_MAPPING = {
         lang: {k.lower(): v for k, v in mapping.items()}
@@ -42,8 +49,8 @@ class GetBibleAPI:
                 ]
 
             return versions
-        except Exception as e:
-            print(f"Error fetching versions: {e}")
+        except Exception:
+            logger.error("Failed to fetch Bible versions")
             return []
 
     @staticmethod
@@ -83,10 +90,24 @@ class GetBibleAPI:
         # ⚡ Bolt: Use a persistent requests.Session() to enable connection pooling.
         # This eliminates redundant TCP/TLS handshake overhead on repeated API calls,
         # significantly reducing latency.
-        # 🛡️ Sentinel: Added timeout=10 to prevent DoS/thread exhaustion if API hangs
-        response = GetBibleAPI._session.get(url, timeout=10)
-        response.raise_for_status()
-        return response.json()
+        # 🛡️ Sentinel: Added timeout=10 and bounded streaming to prevent DoS/memory exhaustion
+        with GetBibleAPI._session.get(url, timeout=10, stream=True) as response:
+            response.raise_for_status()
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None and content_length.isdigit():
+                if int(content_length) > GetBibleAPI.MAX_RESPONSE_BYTES:
+                    raise ValueError("Response size exceeds maximum allowed limit")
+
+            chunks = []
+            total_bytes = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    total_bytes += len(chunk)
+                    if total_bytes > GetBibleAPI.MAX_RESPONSE_BYTES:
+                        raise ValueError("Response size exceeds maximum allowed limit")
+                    chunks.append(chunk)
+
+            return json.loads(b"".join(chunks).decode("utf-8"))
 
     @staticmethod
     def get_passage(bible_id, reference, lang="en"):
@@ -113,6 +134,6 @@ class GetBibleAPI:
             else:
                 return " ".join([v.get("text", "") for v in verses]).strip()
 
-        except Exception as e:
-            print(f"Error fetching passage: {e}")
+        except Exception:
+            logger.error("Failed to fetch Bible passage")
             return None

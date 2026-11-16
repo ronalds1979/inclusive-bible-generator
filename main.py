@@ -559,7 +559,7 @@ class App(ctk.CTk):
     def select_custom_image(self):
         file_path = filedialog.askopenfilename(
             title=self.generator.get_locale_string(self.get_lang_key(), "custom_image_btn"),
-            filetypes=[("Image files", "*.png *.jpg *.jpeg"), ("All files", "*.*")]
+            filetypes=[("Image files", "*.png *.jpg *.jpeg")]
         )
         if file_path:
             # 🛡️ Sentinel: Reject oversized files (> 20MB) to prevent Out-Of-Memory / UI freeze DoS
@@ -707,14 +707,13 @@ class App(ctk.CTk):
                 # Generate Image to Disk
                 pil_img = self.generator.generate_image(
                     self.current_lang, verse, reference, background_filename=background,
-                    custom_image_path=self.custom_image_path, aspect_ratio=aspect_ratio,
+                    custom_image_path=custom_image_path, aspect_ratio=aspect_ratio,
                     font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
                 )
                 pil_img.save(image_save_path, "PNG")
-                self.last_generated_image_path = image_save_path
 
                 # Generate Texts
-                self.alt_text, self.caption = self.generator.generate_texts(lang, verse, reference)
+                alt_text, caption = self.generator.generate_texts(lang, verse, reference)
 
                 # Collect Audio result
                 audio_msg = ""
@@ -726,7 +725,7 @@ class App(ctk.CTk):
                         # 🛡️ Sentinel: Do not leak exception strings
                         audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
 
-                self.after(0, self._on_generate_complete, lang, audio_msg)
+                self.after(0, self._on_generate_complete, lang, audio_msg, image_save_path, alt_text, caption)
             except Exception:
                 # 🛡️ Sentinel: Catch unhandled thread exceptions and update UI generically
                 err_msg = self.generator.get_locale_string(lang, "generate_error_msg")
@@ -735,7 +734,11 @@ class App(ctk.CTk):
 
         threading.Thread(target=_process, daemon=True).start()
 
-    def _on_generate_complete(self, lang, audio_msg):
+    def _on_generate_complete(self, lang, audio_msg, image_save_path, alt_text, caption):
+        self.last_generated_image_path = image_save_path
+        self.alt_text = alt_text
+        self.caption = caption
+
         self.generate_btn.configure(state="normal")
         # Update Textbox
         self.output_textbox.configure(state="normal")
