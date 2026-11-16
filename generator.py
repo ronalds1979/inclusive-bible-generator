@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import threading
+from collections import OrderedDict
 import edge_tts
 import re
 from PIL import Image, ImageDraw, ImageFont
@@ -11,6 +12,7 @@ MAX_IMAGE_PIXELS = 25_000_000
 
 AUDIO_REF_PATTERN = re.compile(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)")
 HEX_COLOR_PATTERN = re.compile(r'^#?(?:[0-9a-fA-F]{3}){1,2}$')
+FILENAME_SANITIZE_PATTERN = re.compile(r'[^\w\-]+')
 
 class Generator:
     LANG_MAP = {
@@ -28,7 +30,7 @@ class Generator:
     @staticmethod
     def sanitize_filename(name):
         """Sanitize a string into a safe single-segment filename."""
-        cleaned = re.sub(r'[^\w\-]+', '_', (name or "").lower()).strip('_')
+        cleaned = FILENAME_SANITIZE_PATTERN.sub('_', (name or "").lower()).strip('_')
         cleaned = os.path.basename(cleaned)[:80]
         return cleaned or "verse"
     # ⚡ Bolt: Precompute 50% darken lookup table for opaque RGB backgrounds
@@ -42,7 +44,7 @@ class Generator:
         self.output_dir = "output"
         os.makedirs(self.output_dir, exist_ok=True)
         self._cache_lock = threading.Lock()
-        self._bg_cache = {}
+        self._bg_cache = OrderedDict()
         self._font_cache = {}
         self._wrap_cache = {}
 
@@ -163,7 +165,11 @@ class Generator:
         bg_cache_key = (bg_path, target_width, target_height)
         with self._cache_lock:
             cached_bg = self._bg_cache.get(bg_cache_key)
-            img = cached_bg.copy() if cached_bg is not None else None
+            if cached_bg is not None:
+                self._bg_cache.move_to_end(bg_cache_key)
+                img = cached_bg.copy()
+            else:
+                img = None
         if img is None:
             try:
                 # ⚡ Bolt: Crop and resize before mode conversion/compositing to avoid processing discarded pixels
@@ -202,11 +208,12 @@ class Generator:
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
 
-            # 🛡️ Sentinel: Bound the background cache size to prevent memory exhaustion (DoS)
+            # 🛡️ Sentinel: Bound the background cache size with LRU eviction to prevent memory exhaustion (DoS)
             with self._cache_lock:
-                if len(self._bg_cache) > 16:
-                    self._bg_cache.clear()
                 self._bg_cache[bg_cache_key] = img.copy()
+                self._bg_cache.move_to_end(bg_cache_key)
+                if len(self._bg_cache) > 16:
+                    self._bg_cache.popitem(last=False)
 
         draw = ImageDraw.Draw(img)
 
