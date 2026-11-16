@@ -45,8 +45,8 @@ class Generator:
         os.makedirs(self.output_dir, exist_ok=True)
         self._cache_lock = threading.Lock()
         self._bg_cache = OrderedDict()
-        self._font_cache = {}
-        self._wrap_cache = {}
+        self._font_cache = OrderedDict()
+        self._wrap_cache = OrderedDict()
 
     def load_locales(self):
         locales_dir = "locales"
@@ -133,7 +133,7 @@ class Generator:
         asyncio.run(_generate())
         return output_path
 
-    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0):
+    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0, max_dimension=None):
         lang_code = self.LANG_MAP.get(lang, "pt-BR")
         if lang_code == "pt-BR":
             lang_code = "pt"
@@ -147,6 +147,15 @@ class Generator:
         elif aspect_ratio == "4:3":
             target_width = 1440
             target_height = 1080
+
+        # ⚡ Bolt: Render directly at preview scale when max_dimension is provided (skips 1080p copy + thumbnail downscale)
+        render_scale = 1.0
+        if max_dimension is not None and max_dimension > 0:
+            max_side = max(target_width, target_height)
+            if max_side > max_dimension:
+                render_scale = max_dimension / max_side
+                target_width = max(1, int(round(target_width * render_scale)))
+                target_height = max(1, int(round(target_height * render_scale)))
 
         # 🛡️ Sentinel: Enforce 20MB file size limit on custom images to prevent memory exhaustion DoS
         if (
@@ -238,11 +247,13 @@ class Generator:
         # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
         safe_font_type = os.path.basename(font_type)
         font_path = os.path.join(self.fonts_dir, safe_font_type)
-        safe_font_size = max(8, min(300, int(font_size)))
+        safe_font_size = max(8, min(300, int(round(int(font_size) * render_scale))))
 
         font_cache_key = (font_path, safe_font_size)
         with self._cache_lock:
             cached_fonts = self._font_cache.get(font_cache_key)
+            if cached_fonts is not None:
+                self._font_cache.move_to_end(font_cache_key)
         if cached_fonts is not None:
             font_large, font_small = cached_fonts
         else:
@@ -258,11 +269,12 @@ class Generator:
                 except IOError:
                     font_large = ImageFont.load_default()
                     font_small = ImageFont.load_default()
-            # 🛡️ Sentinel: Bound the font cache size to prevent memory exhaustion (DoS)
+            # 🛡️ Sentinel: Bound the font cache size with LRU eviction to prevent cache thrashing on slider drags
             with self._cache_lock:
-                if len(self._font_cache) > 32:
-                    self._font_cache.clear()
                 self._font_cache[font_cache_key] = (font_large, font_small)
+                self._font_cache.move_to_end(font_cache_key)
+                if len(self._font_cache) > 64:
+                    self._font_cache.popitem(last=False)
 
         # Simple text wrapping
         max_width = int(target_width * 0.85) # dynamic max width
@@ -279,7 +291,7 @@ class Generator:
 
         x_text = (target_width - verse_width) / 2
         # Apply y_offset
-        y_text = (target_height - verse_height) / 2 - 50 + int(y_offset)
+        y_text = (target_height - verse_height) / 2 - int(round(50 * render_scale)) + int(round(int(y_offset) * render_scale))
 
         # Draw verse
         draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=rgba_color, align="center")
@@ -299,12 +311,14 @@ class Generator:
         return img
 
     def wrap_text(self, text, font, max_width, draw):
-        # ⚡ Bolt: Check if wrapped text is already cached for these parameters
-        # to completely bypass layout process when inputs haven't changed.
-        # Use id(font) to avoid font.getname() exceptions and ensure uniqueness.
-        cache_key = (text, id(font), max_width)
+        # ⚡ Bolt: Key by stable (font.path, font.size) with LRU eviction instead of volatile id(font)
+        font_id = (getattr(font, "path", None), getattr(font, "size", 0))
+        if font_id[0] is None:
+            font_id = id(font)
+        cache_key = (text, font_id, max_width)
         with self._cache_lock:
             if cache_key in self._wrap_cache:
+                self._wrap_cache.move_to_end(cache_key)
                 return self._wrap_cache[cache_key]
 
         # ⚡ Bolt: Measure words individually and accumulate widths
@@ -345,9 +359,10 @@ class Generator:
             lines.append(' '.join(current_line))
 
         wrapped = '\n'.join(lines)
-        # ⚡ Bolt: Bound the cache size to prevent memory leaks
+        # ⚡ Bolt: Bound the cache size with LRU eviction
         with self._cache_lock:
-            if len(self._wrap_cache) > 256:
-                self._wrap_cache.clear()
             self._wrap_cache[cache_key] = wrapped
+            self._wrap_cache.move_to_end(cache_key)
+            if len(self._wrap_cache) > 256:
+                self._wrap_cache.popitem(last=False)
         return wrapped

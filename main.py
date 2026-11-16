@@ -619,21 +619,26 @@ class App(ctk.CTk):
         current_lang = self.current_lang
 
         def _render_preview():
+            # ⚡ Bolt: Skip stale queued requests before allocating/rendering
+            if request_id != getattr(self, "_preview_request_id", 0):
+                return
             try:
                 pil_img = self.generator.generate_image(
                     current_lang, verse, reference, background_filename=background,
                     custom_image_path=custom_image_path, aspect_ratio=aspect_ratio,
-                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset,
+                    max_dimension=500
                 )
-                preview_max_size = (500, 500)
-                # ⚡ Bolt: Use BILINEAR instead of LANCZOS for live previews (~40% faster)
-                pil_img.thumbnail(preview_max_size, Image.Resampling.BILINEAR)
+                if request_id != getattr(self, "_preview_request_id", 0):
+                    return
                 self.after(0, self._apply_preview_result, request_id, pil_img, False)
             except Exception:
                 self.after(0, self._apply_preview_result, request_id, None, True)
 
-        # ⚡ Bolt: Offload preview rendering from the Tkinter main thread
-        threading.Thread(target=_render_preview, daemon=True).start()
+        # ⚡ Bolt: Reuse a single-worker ThreadPoolExecutor to avoid OS thread spawn overhead and GIL thrashing
+        if not hasattr(self, "_preview_executor"):
+            self._preview_executor = ThreadPoolExecutor(max_workers=1)
+        self._preview_executor.submit(_render_preview)
 
     def _apply_preview_result(self, request_id, pil_img, had_error):
         if request_id != getattr(self, "_preview_request_id", 0):
