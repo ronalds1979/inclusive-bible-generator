@@ -205,7 +205,13 @@ class Generator:
                     else:
                         img = raw_img
 
-                    img = img.resize((target_width, target_height))
+                    # ⚡ Bolt: Use BILINEAR resampling for fast live previews (max_dimension set)
+                    resample_filter = (
+                        Image.Resampling.BILINEAR
+                        if max_dimension is not None and max_dimension > 0
+                        else Image.Resampling.BICUBIC
+                    )
+                    img = img.resize((target_width, target_height), resample=resample_filter)
                     if img.mode in ('RGBA', 'LA', 'PA'):
                         base = Image.new('RGB', img.size, (36, 54, 68))
                         rgba = img.convert('RGBA')
