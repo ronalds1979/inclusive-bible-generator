@@ -58,5 +58,9 @@
   "votd_btn": "☀️ Versículo del Día",
   "background_dim_label": "Oscurecer Fondo",
   "image_size_limit_error": "El archivo de imagen supera el límite de 20 MB.",
-  "reset_y_tooltip": "Centrar posición vertical (Y = 0)"
+  "reset_y_tooltip": "Centrar posición vertical (Y = 0)",
+  "contrast_warning_msg": "⚠️ Bajo contraste: considera aumentar Oscurecer Fondo o cambiar el color del texto.",
+  "contrast_fix_btn": "Ajustar Contraste",
+  "open_output_btn": "📂 Abrir Carpeta",
+  "drag_preview_hint": "Consejo: Arrastra en la vista previa para mover el texto (doble clic para centrar)."
 }

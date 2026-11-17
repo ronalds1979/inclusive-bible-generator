@@ -58,5 +58,9 @@
   "votd_btn": "☀️ Versículo do Dia",
   "background_dim_label": "Escurecer Fundo",
   "image_size_limit_error": "O arquivo de imagem excede o limite de 20 MB.",
-  "reset_y_tooltip": "Centralizar posição vertical (Y = 0)"
+  "reset_y_tooltip": "Centralizar posição vertical (Y = 0)",
+  "contrast_warning_msg": "⚠️ Baixo contraste: considere aumentar o Escurecer Fundo ou mudar a cor do texto.",
+  "contrast_fix_btn": "Ajustar Contraste",
+  "open_output_btn": "📂 Abrir Pasta",
+  "drag_preview_hint": "Dica: Arraste na prévia para ajustar a posição vertical (duplo clique para centralizar)."
 }

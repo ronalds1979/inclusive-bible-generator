@@ -1,6 +1,9 @@
 import datetime
+import os
 import random
 import re
+import subprocess
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from tkinter import filedialog, colorchooser
@@ -11,7 +14,6 @@ from book_mapping import BOOK_MAPPING
 from generator import Generator
 from getbible_api import GetBibleAPI
 import pyperclip
-import os
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -201,6 +203,31 @@ class App(ctk.CTk):
         )
         self.bg_dim_slider.grid(row=2, column=0, columnspan=2, sticky="ew")
 
+        self.contrast_warning_frame = ctk.CTkFrame(
+            self.bg_frame,
+            fg_color=("#FFF3CD", "#3B2F14"),
+            corner_radius=6,
+        )
+        self.contrast_warning_frame.grid(row=3, column=0, columnspan=2, pady=(8, 0), sticky="ew")
+        self.contrast_warning_frame.grid_columnconfigure(0, weight=1)
+        self.contrast_warning_label = ctk.CTkLabel(
+            self.contrast_warning_frame,
+            text="",
+            text_color=("#664D03", "#FFECB5"),
+            justify="left",
+            wraplength=320,
+        )
+        self.contrast_warning_label.grid(row=0, column=0, padx=(10, 6), pady=6, sticky="w")
+        self.contrast_fix_btn = ctk.CTkButton(
+            self.contrast_warning_frame,
+            text="",
+            width=110,
+            height=26,
+            command=self.auto_fix_contrast,
+        )
+        self.contrast_fix_btn.grid(row=0, column=1, padx=(0, 8), pady=6, sticky="e")
+        self.contrast_warning_frame.grid_remove()
+
         # Font customization block
         self.font_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
         self.font_config_frame.grid(row=9, column=0, columnspan=2, pady=(10, 0), sticky="ew")
@@ -254,12 +281,9 @@ class App(ctk.CTk):
         self.color_picker_btn.grid(row=0, column=2, padx=(4, 0))
         self.color_picker_btn.bind(
             "<Enter>",
-            lambda _e: self.status_label.configure(
-                text=self.generator.get_locale_string(self.get_lang_key(), "color_picker_title"),
-                text_color="gray",
-            ),
+            lambda _e: self._show_hover_hint("color_picker_title"),
         )
-        self.color_picker_btn.bind("<Leave>", lambda _e: self.status_label.configure(text=""))
+        self.color_picker_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
         self._sync_color_swatch()
 
         # Initially hide the custom entry box and picker, only show when Custom... is selected
@@ -313,12 +337,9 @@ class App(ctk.CTk):
         self.reset_y_btn.grid(row=0, column=1, sticky="e")
         self.reset_y_btn.bind(
             "<Enter>",
-            lambda _e: self.status_label.configure(
-                text=self.generator.get_locale_string(self.get_lang_key(), "reset_y_tooltip"),
-                text_color="gray",
-            ),
+            lambda _e: self._show_hover_hint("reset_y_tooltip"),
         )
-        self.reset_y_btn.bind("<Leave>", lambda _e: self.status_label.configure(text=""))
+        self.reset_y_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
         self.y_offset_var = ctk.IntVar(value=0)
         self.y_offset_slider = ctk.CTkSlider(self.bottom_config_frame, from_=-400, to=400, variable=self.y_offset_var, command=self._on_y_offset_changed)
@@ -371,10 +392,13 @@ class App(ctk.CTk):
         self.buttons_frame.grid(row=14, column=0, columnspan=2, pady=10)
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt, state="disabled")
-        self.copy_alt_btn.grid(row=0, column=0, padx=10)
+        self.copy_alt_btn.grid(row=0, column=0, padx=6)
 
         self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption, state="disabled")
-        self.copy_caption_btn.grid(row=0, column=1, padx=10)
+        self.copy_caption_btn.grid(row=0, column=1, padx=6)
+
+        self.open_output_btn = ctk.CTkButton(self.buttons_frame, text="📂 Abrir Pasta", command=self.open_output_folder, state="disabled")
+        self.open_output_btn.grid(row=0, column=2, padx=6)
 
         self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", wraplength=460)
         self.status_label.grid(row=15, column=0, columnspan=2, pady=10)
@@ -391,6 +415,11 @@ class App(ctk.CTk):
         # Image Preview
         self.preview_label = ctk.CTkLabel(self.right_frame, text=self.generator.get_locale_string(self.get_lang_key(), "preview_empty_state"), text_color="gray")
         self.preview_label.grid(row=0, column=0, sticky="nsew")
+        self.preview_label.bind("<ButtonPress-1>", self._start_preview_drag)
+        self.preview_label.bind("<B1-Motion>", self._on_preview_drag)
+        self.preview_label.bind("<Double-Button-1>", lambda _e: self.reset_y_offset())
+        self.preview_label.bind("<Enter>", lambda _e: self._show_hover_hint("drag_preview_hint"))
+        self.preview_label.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
         # Initial UI Update
         self.update_ui_texts()
@@ -576,7 +605,12 @@ class App(ctk.CTk):
 
         self.copy_alt_btn.configure(text=self.generator.get_locale_string(lang, "copy_alt_text_btn"))
         self.copy_caption_btn.configure(text=self.generator.get_locale_string(lang, "copy_caption_btn"))
-        self.status_label.configure(text="")
+        self.open_output_btn.configure(text=self.generator.get_locale_string(lang, "open_output_btn"))
+        self.contrast_warning_label.configure(text=self.generator.get_locale_string(lang, "contrast_warning_msg"))
+        self.contrast_fix_btn.configure(text=self.generator.get_locale_string(lang, "contrast_fix_btn"))
+        self._showing_hover_hint = False
+        self.status_label.configure(text="", text_color="gray")
+        self._update_contrast_warning()
         if not getattr(self.preview_label, "image", None):
             self.preview_label.configure(text=self.generator.get_locale_string(lang, "preview_empty_state"))
 
@@ -602,6 +636,10 @@ class App(ctk.CTk):
         self.bible_version_var.set(version_names[0])
         self.status_label.configure(text="")
         self.trigger_preview()
+        if not getattr(self, "_initial_verse_loaded", False):
+            self._initial_verse_loaded = True
+            if not self.reference_input.get().strip() and not self.verse_input.get("1.0", "end-1c").strip():
+                self.apply_quick_reference(fetch=True)
 
     def _update_version_dropdown_error(self):
         self.api_loading = False
@@ -662,6 +700,74 @@ class App(ctk.CTk):
             self.fetch_btn.configure(text=original_text)
             self.status_label.configure(text=self.generator.get_locale_string(lang, "error_fetching_verse_msg"), text_color="red")
 
+    def _show_hover_hint(self, locale_key):
+        hint_text = self.generator.get_locale_string(self.get_lang_key(), locale_key)
+        if not getattr(self, "_showing_hover_hint", False):
+            self._saved_status = (
+                self.status_label.cget("text"),
+                self.status_label.cget("text_color"),
+            )
+        self._showing_hover_hint = True
+        self._active_hint_text = hint_text
+        self.status_label.configure(text=hint_text, text_color="gray")
+
+    def _clear_hover_hint(self):
+        if getattr(self, "_showing_hover_hint", False):
+            self._showing_hover_hint = False
+            current_text = self.status_label.cget("text")
+            if current_text == getattr(self, "_active_hint_text", None):
+                saved_text, saved_color = getattr(self, "_saved_status", ("", "gray"))
+                self.status_label.configure(text=saved_text, text_color=saved_color)
+
+    def _start_preview_drag(self, event):
+        self._drag_start_y = event.y_root
+        self._drag_start_offset = self.y_offset_var.get()
+
+    def _on_preview_drag(self, event):
+        if not hasattr(self, "_drag_start_y"):
+            return
+        delta = (event.y_root - self._drag_start_y) * 2
+        updated = max(-400, min(400, int(round(self._drag_start_offset + delta))))
+        if updated != self.y_offset_var.get():
+            self.y_offset_var.set(updated)
+            self.trigger_preview()
+
+    def _update_contrast_warning(self):
+        if not hasattr(self, "contrast_warning_frame"):
+            return
+        if self._is_low_contrast():
+            lang = self.get_lang_key()
+            self.contrast_warning_label.configure(
+                text=self.generator.get_locale_string(lang, "contrast_warning_msg")
+            )
+            self.contrast_fix_btn.configure(
+                text=self.generator.get_locale_string(lang, "contrast_fix_btn")
+            )
+            self.contrast_warning_frame.grid()
+        else:
+            self.contrast_warning_frame.grid_remove()
+
+    def _is_low_contrast(self):
+        color = self.font_color_var.get().strip()
+        lum = self._color_luminance(color)
+        if lum is None:
+            return False
+        bg_dim = int(self.bg_dim_var.get())
+        is_dark_preset = self.custom_image_path is None and self.bg_var.get() in (
+            "minimal_slate.png",
+            "starry_night.png",
+        )
+        return (lum > 0.7 and bg_dim < 25 and not is_dark_preset) or (
+            lum < 0.15 and bg_dim >= 40
+        )
+
+    def auto_fix_contrast(self):
+        lum = self._color_luminance(self.font_color_var.get().strip())
+        if lum is None:
+            return
+        self.bg_dim_var.set(45 if lum > 0.5 else 0)
+        self.trigger_preview()
+
     def trigger_preview(self, *args):
         # ⚡ Bolt: Skip redundant CustomTkinter .configure() redraws when slider values or button states are unchanged
         lang = self.get_lang_key()
@@ -674,6 +780,8 @@ class App(ctk.CTk):
             self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {font_size}")
             self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {y_offset}")
             self.bg_dim_label.configure(text=f"{self.generator.get_locale_string(lang, 'background_dim_label')}: {bg_dim}%")
+
+        self._update_contrast_warning()
 
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
@@ -702,13 +810,21 @@ class App(ctk.CTk):
 
     HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
-    @staticmethod
-    def _contrast_text_color(hex_color):
+    @classmethod
+    def _color_luminance(cls, hex_color):
+        if not cls.HEX_COLOR_RE.match(hex_color):
+            return None
         hex_val = hex_color.lstrip("#")
         if len(hex_val) == 3:
             hex_val = "".join(c * 2 for c in hex_val)
         r, g, b = int(hex_val[0:2], 16), int(hex_val[2:4], 16), int(hex_val[4:6], 16)
-        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+    @classmethod
+    def _contrast_text_color(cls, hex_color):
+        luminance = cls._color_luminance(hex_color)
+        if luminance is None:
+            return "#FFFFFF"
         return "#000000" if luminance > 0.5 else "#FFFFFF"
 
     def _sync_color_swatch(self):
@@ -983,9 +1099,10 @@ class App(ctk.CTk):
         self.output_textbox.insert("1.0", display_text)
         self.output_textbox.configure(state="disabled")
 
-        # Enable copy buttons
+        # Enable copy/open buttons
         self.copy_alt_btn.configure(state="normal")
         self.copy_caption_btn.configure(state="normal")
+        self.open_output_btn.configure(state="normal")
 
         # Status Label
         msg = self.generator.get_locale_string(lang, "success_msg")
@@ -994,6 +1111,22 @@ class App(ctk.CTk):
         original_text = self.generator.get_locale_string(lang, "generate_btn")
         self.generate_btn.configure(text="✓ " + original_text)
         self.after(2000, lambda: self.generate_btn.configure(text=original_text))
+
+    def open_output_folder(self):
+        if not self.last_generated_image_path:
+            return
+        folder = os.path.dirname(os.path.abspath(self.last_generated_image_path))
+        if not os.path.isdir(folder):
+            return
+        try:
+            if hasattr(os, "startfile"):
+                os.startfile(folder)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", folder])
+            else:
+                subprocess.Popen(["xdg-open", folder])
+        except OSError:
+            pass
 
     def copy_alt(self):
         if self.alt_text:

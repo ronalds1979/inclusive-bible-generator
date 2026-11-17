@@ -37,3 +37,8 @@
 ## 2024-11-11 - Prevent Race Conditions During Async Loads
 **Learning:** During initial application load, async API fetches can cause UI race conditions if dependent controls are initialized in an active state. For instance, evaluating an input field during live preview might inadvertently enable a button before the required API data is fully loaded.
 **Action:** Initialize dependent API controls (like dropdowns and fetch buttons) with `state="disabled"` and explicitly manage a background loading flag (e.g., `api_loading = True`). Only evaluate and enable these controls once the async fetch resolves.
+
+
+## 2026-11-17 - Non-Destructive Hover Hints, Contrast Guardrail & Immediate Preview
+**Learning:** Binding `<Leave>` on icon buttons to unconditionally clear a shared status label wipes out active success or error notifications whenever the user moves the pointer past a button. Additionally, launching with an empty preview pane and no low-contrast warning leaves desktop users guessing until export.
+**Action:** Snapshot and conditionally restore the previous status message/color on hover exit, auto-populate the initial verse preview on startup, add a real-time contrast warning banner with a one-click fix, support vertical drag/double-click on the preview canvas, and expose an "Open Folder" button after generation.

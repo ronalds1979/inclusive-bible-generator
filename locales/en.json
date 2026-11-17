@@ -58,5 +58,9 @@
   "votd_btn": "☀️ Verse of the Day",
   "background_dim_label": "Background Dim",
   "image_size_limit_error": "Image file exceeds the 20 MB limit.",
-  "reset_y_tooltip": "Reset vertical position (Y = 0)"
+  "reset_y_tooltip": "Reset vertical position (Y = 0)",
+  "contrast_warning_msg": "⚠️ Low text contrast: consider increasing Background Dim or switching text color.",
+  "contrast_fix_btn": "Auto-Fix Contrast",
+  "open_output_btn": "📂 Open Folder",
+  "drag_preview_hint": "Tip: Drag up/down on the preview to adjust vertical position (double-click to center)."
 }
