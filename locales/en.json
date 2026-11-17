@@ -51,5 +51,12 @@
   "audio_error_msg": "\nError generating audio. Please check settings.",
   "generate_error_msg": "An error occurred during generation.",
   "save_image_suffix": "Image",
-  "save_audio_suffix": "Audio"
+  "save_audio_suffix": "Audio",
+  "book_label": "Book:",
+  "chapter_label": "Ch.:",
+  "verse_num_label": "Verse:",
+  "votd_btn": "☀️ Verse of the Day",
+  "background_dim_label": "Background Dim",
+  "image_size_limit_error": "Image file exceeds the 20 MB limit.",
+  "reset_y_tooltip": "Reset vertical position (Y = 0)"
 }

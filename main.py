@@ -1,3 +1,5 @@
+import datetime
+import random
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -5,6 +7,7 @@ from tkinter import filedialog, colorchooser
 from PIL import Image
 
 import customtkinter as ctk
+from book_mapping import BOOK_MAPPING
 from generator import Generator
 from getbible_api import GetBibleAPI
 import pyperclip
@@ -20,6 +23,17 @@ class App(ctk.CTk):
         "Español (España)": "es"
     }
 
+    CURATED_VOTD_REFS = [
+        (19, 119, "105"),
+        (43, 3, "16"),
+        (19, 23, "1"),
+        (50, 4, "13"),
+        (20, 3, "5-6"),
+        (23, 41, "10"),
+        (45, 8, "28"),
+        (62, 4, "8"),
+    ]
+
     def __init__(self):
         super().__init__()
 
@@ -28,6 +42,7 @@ class App(ctk.CTk):
         self.api_loading = True
         self._fetching_verse = False
         self._is_generating = False
+        self._votd_offset = 0
 
         self.title("inclusive-bible-generator")
         self.geometry("1100x750")
@@ -79,6 +94,53 @@ class App(ctk.CTk):
         self.fetch_btn = ctk.CTkButton(self.api_frame, text="Buscar Versículo", command=self.fetch_verse, state="disabled")
         self.fetch_btn.grid(row=1, column=1, padx=(5, 0), sticky="ew")
 
+        # Quick Book / Chapter / Verse selector + Verse of the Day
+        self.quick_ref_frame = ctk.CTkFrame(self.api_frame, fg_color="transparent")
+        self.quick_ref_frame.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+        self.quick_ref_frame.grid_columnconfigure(0, weight=2)
+        self.quick_ref_frame.grid_columnconfigure(1, weight=0)
+        self.quick_ref_frame.grid_columnconfigure(2, weight=0)
+        self.quick_ref_frame.grid_columnconfigure(3, weight=1)
+
+        self.book_label = ctk.CTkLabel(self.quick_ref_frame, text="Livro:")
+        self.book_label.grid(row=0, column=0, padx=(0, 5), sticky="w")
+        self.chapter_label = ctk.CTkLabel(self.quick_ref_frame, text="Cap.:")
+        self.chapter_label.grid(row=0, column=1, padx=4, sticky="w")
+        self.verse_num_label = ctk.CTkLabel(self.quick_ref_frame, text="Verso:")
+        self.verse_num_label.grid(row=0, column=2, padx=4, sticky="w")
+
+        canonical_books = self._get_canonical_books("pt")
+        default_book = canonical_books[18] if len(canonical_books) > 18 else canonical_books[0]
+        self.book_var = ctk.StringVar(value=default_book)
+        self.book_dropdown = ctk.CTkOptionMenu(
+            self.quick_ref_frame,
+            values=canonical_books,
+            variable=self.book_var,
+            command=lambda _choice: self.apply_quick_reference(fetch=True),
+        )
+        self.book_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
+
+        self.chapter_var = ctk.StringVar(value="119")
+        self.chapter_entry = ctk.CTkEntry(self.quick_ref_frame, textvariable=self.chapter_var, width=54)
+        self.chapter_entry.grid(row=1, column=1, padx=4)
+        self.chapter_entry.bind("<Return>", lambda _e: self.apply_quick_reference(fetch=True))
+
+        self.verse_num_var = ctk.StringVar(value="105")
+        self.verse_num_entry = ctk.CTkEntry(self.quick_ref_frame, textvariable=self.verse_num_var, width=54)
+        self.verse_num_entry.grid(row=1, column=2, padx=4)
+        self.verse_num_entry.bind("<Return>", lambda _e: self.apply_quick_reference(fetch=True))
+
+        self.votd_btn = ctk.CTkButton(
+            self.quick_ref_frame,
+            text="☀️ Versículo do Dia",
+            fg_color="transparent",
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            text_color=("gray15", "gray90"),
+            command=self.load_verse_of_the_day,
+        )
+        self.votd_btn.grid(row=1, column=3, padx=(5, 0), sticky="ew")
+
         # Reference Input
         self.reference_label = ctk.CTkLabel(self.left_frame, text="Referência (ex: Salmos 119:105):")
         self.reference_label.grid(row=3, column=0, pady=(0, 0), sticky="w")
@@ -124,6 +186,20 @@ class App(ctk.CTk):
         self.custom_image_path = None
         self.custom_image_btn = ctk.CTkButton(self.bg_frame, text="Selecionar Imagem Personalizada", command=self.select_custom_image)
         self.custom_image_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
+
+        self.bg_dim_label = ctk.CTkLabel(self.bg_frame, text="Escurecer Fundo: 50%")
+        self.bg_dim_label.grid(row=1, column=0, columnspan=2, pady=(8, 2), sticky="w")
+
+        self.bg_dim_var = ctk.IntVar(value=50)
+        self.bg_dim_slider = ctk.CTkSlider(
+            self.bg_frame,
+            from_=0,
+            to=75,
+            number_of_steps=15,
+            variable=self.bg_dim_var,
+            command=self._on_bg_dim_changed,
+        )
+        self.bg_dim_slider.grid(row=2, column=0, columnspan=2, sticky="ew")
 
         # Font customization block
         self.font_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
@@ -235,6 +311,14 @@ class App(ctk.CTk):
             command=self.reset_y_offset
         )
         self.reset_y_btn.grid(row=0, column=1, sticky="e")
+        self.reset_y_btn.bind(
+            "<Enter>",
+            lambda _e: self.status_label.configure(
+                text=self.generator.get_locale_string(self.get_lang_key(), "reset_y_tooltip"),
+                text_color="gray",
+            ),
+        )
+        self.reset_y_btn.bind("<Leave>", lambda _e: self.status_label.configure(text=""))
 
         self.y_offset_var = ctk.IntVar(value=0)
         self.y_offset_slider = ctk.CTkSlider(self.bottom_config_frame, from_=-400, to=400, variable=self.y_offset_var, command=self._on_y_offset_changed)
@@ -267,6 +351,12 @@ class App(ctk.CTk):
 
         # Bind enter key for quick fetch
         self.reference_input.bind("<Return>", lambda event: self.fetch_verse())
+
+        # Desktop keyboard shortcuts
+        self.bind("<Control-g>", lambda _e: self.generate_content())
+        self.bind("<Control-G>", lambda _e: self.generate_content())
+        self.bind("<Control-Shift-C>", lambda _e: self.copy_alt())
+        self.bind("<Control-Shift-c>", lambda _e: self.copy_alt())
 
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150, state="disabled")
@@ -306,6 +396,45 @@ class App(ctk.CTk):
         self.update_ui_texts()
         self.load_bible_versions()
 
+    def _get_canonical_books(self, lang_prefix):
+        mapping = BOOK_MAPPING.get(lang_prefix, BOOK_MAPPING["en"])
+        seen_nrs = set()
+        books = []
+        for name, nr in mapping.items():
+            if nr not in seen_nrs:
+                seen_nrs.add(nr)
+                books.append(name)
+        return books
+
+    def _get_lang_prefix(self):
+        return self.get_lang_key()[:2]
+
+    def apply_quick_reference(self, fetch=True):
+        book = self.book_var.get().strip()
+        chapter = self.chapter_var.get().strip() or "1"
+        verse = self.verse_num_var.get().strip()
+        ref = f"{book} {chapter}:{verse}" if verse else f"{book} {chapter}"
+        self.reference_input.delete(0, "end")
+        self.reference_input.insert(0, ref)
+        self.trigger_preview()
+        if fetch and not getattr(self, "api_loading", False):
+            self.fetch_verse()
+
+    def load_verse_of_the_day(self):
+        idx = (datetime.date.today().toordinal() + self._votd_offset) % len(self.CURATED_VOTD_REFS)
+        self._votd_offset += 1
+        book_nr, chapter, verse = self.CURATED_VOTD_REFS[idx]
+        lang_prefix = self._get_lang_prefix()
+        books = self._get_canonical_books(lang_prefix)
+        book_name = books[book_nr - 1] if 1 <= book_nr <= len(books) else books[0]
+        self.book_var.set(book_name)
+        self.chapter_var.set(str(chapter))
+        self.verse_num_var.set(verse)
+        self.apply_quick_reference(fetch=True)
+
+    def _on_bg_dim_changed(self, value):
+        self.trigger_preview()
+
     def _on_font_size_changed(self, value):
         self.trigger_preview()
 
@@ -339,6 +468,25 @@ class App(ctk.CTk):
         self.reference_label.configure(text=self.generator.get_locale_string(lang, "reference_label"))
         self.bible_version_label.configure(text=self.generator.get_locale_string(lang, "bible_version_label"))
         self.fetch_btn.configure(text=self.generator.get_locale_string(lang, "fetch_verse_btn"))
+        self.book_label.configure(text=self.generator.get_locale_string(lang, "book_label"))
+        self.chapter_label.configure(text=self.generator.get_locale_string(lang, "chapter_label"))
+        self.verse_num_label.configure(text=self.generator.get_locale_string(lang, "verse_num_label"))
+        self.votd_btn.configure(text=self.generator.get_locale_string(lang, "votd_btn"))
+
+        lang_prefix = self._get_lang_prefix()
+        books = self._get_canonical_books(lang_prefix)
+        current_book = self.book_var.get()
+        book_nr = None
+        for prefix in ("pt", "en", "es"):
+            if current_book in BOOK_MAPPING.get(prefix, {}):
+                book_nr = BOOK_MAPPING[prefix][current_book]
+                break
+        self.book_dropdown.configure(values=books)
+        if book_nr is not None and 1 <= book_nr <= len(books):
+            self.book_var.set(books[book_nr - 1])
+        elif books and current_book not in books:
+            self.book_var.set(books[0])
+
         self.generate_btn.configure(text=self.generator.get_locale_string(lang, "generate_btn"))
 
 
@@ -360,6 +508,7 @@ class App(ctk.CTk):
 
         self.background_label.configure(text=self.generator.get_locale_string(lang, "background_label"))
         self.custom_image_btn.configure(text=self.generator.get_locale_string(lang, "custom_image_btn"))
+        self.bg_dim_label.configure(text=f"{self.generator.get_locale_string(lang, 'background_dim_label')}: {int(self.bg_dim_var.get())}%")
 
         self.font_type_label.configure(text=self.generator.get_locale_string(lang, "font_type_label"))
 
@@ -494,11 +643,13 @@ class App(ctk.CTk):
         lang = self.get_lang_key()
         font_size = int(self.font_size_var.get())
         y_offset = int(self.y_offset_var.get())
+        bg_dim = int(self.bg_dim_var.get())
 
-        if getattr(self, "_last_label_state", None) != (lang, font_size, y_offset):
-            self._last_label_state = (lang, font_size, y_offset)
+        if getattr(self, "_last_label_state", None) != (lang, font_size, y_offset, bg_dim):
+            self._last_label_state = (lang, font_size, y_offset, bg_dim)
             self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {font_size}")
             self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {y_offset}")
+            self.bg_dim_label.configure(text=f"{self.generator.get_locale_string(lang, 'background_dim_label')}: {bg_dim}%")
 
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
@@ -596,8 +747,16 @@ class App(ctk.CTk):
             # 🛡️ Sentinel: Reject non-regular files and oversized files (> 20MB) to prevent Out-Of-Memory / UI freeze DoS
             try:
                 if not os.path.isfile(file_path) or os.path.getsize(file_path) > 20 * 1024 * 1024:
+                    self.status_label.configure(
+                        text=self.generator.get_locale_string(self.get_lang_key(), "image_size_limit_error"),
+                        text_color="red",
+                    )
                     return
             except OSError:
+                self.status_label.configure(
+                    text=self.generator.get_locale_string(self.get_lang_key(), "image_size_limit_error"),
+                    text_color="red",
+                )
                 return
             self.custom_image_path = file_path
             self.bg_var.set(os.path.basename(file_path))
@@ -627,11 +786,13 @@ class App(ctk.CTk):
         else:
             aspect_ratio = "1:1"
 
-        return verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, self.custom_image_path
+        background_dim = round(self.bg_dim_var.get() / 100.0, 2)
+
+        return verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, self.custom_image_path, background_dim
 
     def preview_content(self):
         current_params = self.get_current_params()
-        verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path = current_params
+        verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path, background_dim = current_params
 
         if not verse or not reference:
             self._preview_request_id = getattr(self, "_preview_request_id", 0) + 1
@@ -658,7 +819,7 @@ class App(ctk.CTk):
                     current_lang, verse, reference, background_filename=background,
                     custom_image_path=custom_image_path, aspect_ratio=aspect_ratio,
                     font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset,
-                    max_dimension=500
+                    max_dimension=500, background_dim=background_dim
                 )
                 if request_id != getattr(self, "_preview_request_id", 0):
                     return
@@ -687,7 +848,7 @@ class App(ctk.CTk):
         if getattr(self, "_is_generating", False):
             return
 
-        verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path = self.get_current_params()
+        verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path, background_dim = self.get_current_params()
         if not verse or not reference:
             return
 
@@ -753,7 +914,8 @@ class App(ctk.CTk):
                 pil_img = self.generator.generate_image(
                     self.current_lang, verse, reference, background_filename=background,
                     custom_image_path=custom_image_path, aspect_ratio=aspect_ratio,
-                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset
+                    font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset,
+                    background_dim=background_dim
                 )
                 pil_img.save(image_save_path, "PNG")
 

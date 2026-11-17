@@ -51,5 +51,12 @@
   "audio_error_msg": "\nError al generar audio. Verifica la configuración.",
   "generate_error_msg": "Ocurrió un error durante la generación.",
   "save_image_suffix": "Imagen",
-  "save_audio_suffix": "Audio"
+  "save_audio_suffix": "Audio",
+  "book_label": "Libro:",
+  "chapter_label": "Cap.:",
+  "verse_num_label": "Verso:",
+  "votd_btn": "☀️ Versículo del Día",
+  "background_dim_label": "Oscurecer Fondo",
+  "image_size_limit_error": "El archivo de imagen supera el límite de 20 MB.",
+  "reset_y_tooltip": "Centrar posición vertical (Y = 0)"
 }

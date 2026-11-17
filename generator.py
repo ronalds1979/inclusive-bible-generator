@@ -204,10 +204,16 @@ class Generator:
         asyncio.run(_generate())
         return output_path
 
-    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0, max_dimension=None):
+    def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0, max_dimension=None, background_dim=0.5):
         lang_code = self.LANG_MAP.get(lang, "pt-BR")
         if lang_code == "pt-BR":
             lang_code = "pt"
+
+        try:
+            safe_dim = max(0.0, min(0.85, float(background_dim)))
+        except (ValueError, TypeError):
+            safe_dim = 0.5
+        dim_key = round(safe_dim, 2)
 
         target_width = 1080
         target_height = 1080
@@ -243,7 +249,7 @@ class Generator:
         except OSError:
             bg_mtime = 0
 
-        bg_cache_key = (bg_path, bg_mtime, target_width, target_height)
+        bg_cache_key = (bg_path, bg_mtime, target_width, target_height, dim_key)
         with self._cache_lock:
             cached_bg = self._bg_cache.get(bg_cache_key)
             if cached_bg is not None:
@@ -294,7 +300,12 @@ class Generator:
                         img = base
                     elif img.mode != 'RGB':
                         img = img.convert('RGB')
-                    img = img.point(self.DARKEN_LUT)
+                    if dim_key == 0.5:
+                        img = img.point(self.DARKEN_LUT)
+                    elif dim_key > 0.0:
+                        dim_factor = 1.0 - safe_dim
+                        dim_lut = [int(i * dim_factor) for i in range(256)] * 3
+                        img = img.point(dim_lut)
                     bg_loaded = True
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
