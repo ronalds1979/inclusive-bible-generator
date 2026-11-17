@@ -104,6 +104,43 @@ class TestSecurity(unittest.TestCase):
         self.assertIn("{verse.__class__}", rendered)
         self.assertIn("God is love", rendered)
 
+    def test_get_locale_string_single_pass_blocks_token_injection(self):
+        rendered = self.generator.get_locale_string(
+            "en",
+            "alt_text_template",
+            description="{verse}",
+            verse="Literal {reference} token",
+            reference="John 3:16",
+        )
+        self.assertIn("Literal {reference} token", rendered)
+        self.assertEqual(rendered.count("John 3:16"), 1)
+
+    def test_parse_reference_and_get_passage_reject_out_of_bounds_and_invalid_bible_id(self):
+        self.assertEqual(GetBibleAPI._parse_reference("Psalms 151:1", lang="en"), (None, None, None, None))
+        self.assertEqual(GetBibleAPI._parse_reference("Psalms 0:1", lang="en"), (None, None, None, None))
+        self.assertEqual(GetBibleAPI._parse_reference("Psalms 119:201", lang="en"), (None, None, None, None))
+        self.assertEqual(GetBibleAPI._parse_reference("Psalms 119:1-201", lang="en"), (None, None, None, None))
+
+        with patch.object(GetBibleAPI, "_fetch_chapter") as mock_fetch:
+            self.assertIsNone(GetBibleAPI.get_passage("../evil", "John 3:16", lang="en"))
+            self.assertIsNone(GetBibleAPI.get_passage("", "John 3:16", lang="en"))
+            mock_fetch.assert_not_called()
+
+    def test_is_valid_raster_image_checks_magic_bytes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_png = os.path.join(tmpdir, "fake.png")
+            with open(fake_png, "wb") as f:
+                f.write(b"<svg xmlns='http://www.w3.org/2000/svg'/>")
+            self.assertFalse(Generator._is_valid_raster_image(fake_png))
+
+            real_png = os.path.join(tmpdir, "real.png")
+            Image.new("RGB", (8, 8), color=(0, 0, 0)).save(real_png, "PNG")
+            self.assertTrue(Generator._is_valid_raster_image(real_png))
+
+            real_jpg = os.path.join(tmpdir, "real.jpg")
+            Image.new("RGB", (8, 8), color=(0, 0, 0)).save(real_jpg, "JPEG")
+            self.assertTrue(Generator._is_valid_raster_image(real_jpg))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -60,3 +60,10 @@
 - Replaced the overlapping quantifier in `GetBibleAPI.REFERENCE_PATTERN` (`getbible_api.py`) to prevent ReDoS and added circumflex vowels (`âêîôûÂÊÎÔÛ`) so Portuguese/Spanish book names such as `Gênesis` and `Êxodo` parse properly.
 - Enhanced `Generator._is_safe_regular_file` and added `_validate_safe_output_path` / `save_image_atomic` (`generator.py`) to reject symlinks/junctions across the path lineage, block Windows reserved device names on exports, validate font files before loading, and bound `DARKEN_LUTS`.
 - Sanitized quick-reference chapter/verse inputs in `main.py`, routed custom image validation through `_is_safe_regular_file`, used `save_image_atomic` for PNG exports, and added `test_security.py`.
+
+## 2026-11-17 - Single-Pass Localization, Raster Magic-Byte & Bible Query Hardening
+**Vulnerabilities Remediated:**
+- Replaced sequential `str.replace` loops in `Generator.get_locale_string` (`generator.py`) with single-pass `TEMPLATE_TOKEN_PATTERN.sub(...)` replacement so substituted values cannot inject `{key}` placeholders.
+- Added `_is_safe_regular_file` checks when loading locale JSON files in `load_locales()` and scanning assets in `main.py`, plus PNG/JPEG magic-byte validation (`_is_valid_raster_image`) for custom and built-in background images.
+- Enforced `verse[:5000]` and `reference[:100]` caps in `generate_texts()`, `generate_image()`, and `wrap_text()`.
+- Added `BIBLE_ID_PATTERN` validation and numeric bounds (`1 <= chapter <= 150`, `1 <= verse <= 200`) in `GetBibleAPI` (`getbible_api.py`), and checked `_has_reparse_in_lineage` in `open_output_folder()` (`main.py`).

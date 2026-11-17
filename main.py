@@ -192,7 +192,8 @@ class App(ctk.CTk):
         try:
             bg_files = [
                 f for f in os.listdir(self.generator.backgrounds_dir)
-                if f.endswith('.png') or f.endswith('.jpg')
+                if (f.endswith('.png') or f.endswith('.jpg'))
+                and self.generator._is_safe_regular_file(os.path.join(self.generator.backgrounds_dir, f))
             ]
         except OSError:
             bg_files = []
@@ -260,7 +261,11 @@ class App(ctk.CTk):
 
         self.font_var = ctk.StringVar(value="Roboto-Regular.ttf")
         try:
-            font_files = [f for f in os.listdir(self.generator.fonts_dir) if f.endswith('.ttf')]
+            font_files = [
+                f for f in os.listdir(self.generator.fonts_dir)
+                if f.endswith('.ttf')
+                and self.generator._is_safe_regular_file(os.path.join(self.generator.fonts_dir, f))
+            ]
         except OSError:
             font_files = []
         if not font_files:
@@ -955,8 +960,8 @@ class App(ctk.CTk):
             filetypes=[("Image files", "*.png *.jpg *.jpeg")]
         )
         if file_path:
-            # 🛡️ Sentinel: Reject non-regular files, symlinks/junctions, device names, and oversized files (> 20MB)
-            if not self.generator._is_safe_regular_file(file_path):
+            # 🛡️ Sentinel: Reject non-regular files, symlinks/junctions, device names, non-raster files, and oversized files (> 20MB)
+            if not self.generator._is_valid_raster_image(file_path):
                 self.status_label.configure(
                     text=self.generator.get_locale_string(self.get_lang_key(), "image_size_limit_error"),
                     text_color="red",
@@ -1216,7 +1221,7 @@ class App(ctk.CTk):
         if not self.last_generated_image_path:
             return
         folder = os.path.dirname(os.path.abspath(self.last_generated_image_path))
-        if not os.path.isdir(folder):
+        if not os.path.isdir(folder) or self.generator._has_reparse_in_lineage(folder):
             return
         try:
             if hasattr(os, "startfile"):

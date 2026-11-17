@@ -24,6 +24,7 @@ class GetBibleAPI:
         for lang, mapping in BOOK_MAPPING.items()
     }
 
+    BIBLE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
     REFERENCE_PATTERN = re.compile(
         r'^((?:\d\s+)?[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+(?:\s+[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)*)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$'
     )
@@ -72,6 +73,21 @@ class GetBibleAPI:
         chapter = match.group(2)
         start_verse = match.group(3)
         end_verse = match.group(4)
+
+        try:
+            chapter_num = int(chapter)
+            if not (1 <= chapter_num <= 150):
+                return None, None, None, None
+            if start_verse is not None:
+                start_num = int(start_verse)
+                if not (1 <= start_num <= 200):
+                    return None, None, None, None
+            if end_verse is not None:
+                end_num = int(end_verse)
+                if not (1 <= end_num <= 200):
+                    return None, None, None, None
+        except ValueError:
+            return None, None, None, None
 
         book_nr = GetBibleAPI.LOWERCASE_BOOK_MAPPING.get(lang_prefix, GetBibleAPI.LOWERCASE_BOOK_MAPPING["en"]).get(book_name.lower())
 
@@ -132,13 +148,17 @@ class GetBibleAPI:
 
     @staticmethod
     def get_passage(bible_id, reference, lang="en"):
+        if not bible_id or not isinstance(bible_id, str) or not GetBibleAPI.BIBLE_ID_PATTERN.match(bible_id.strip()):
+            return None
+        safe_bible_id = bible_id.strip()
+
         book_nr, chapter, start_verse, end_verse = GetBibleAPI._parse_reference(reference, lang)
 
         if not book_nr or not chapter:
             return None
 
         try:
-            verses = GetBibleAPI._fetch_chapter(bible_id, book_nr, chapter)
+            verses = GetBibleAPI._fetch_chapter(safe_bible_id, book_nr, chapter)
 
             if start_verse:
                 start_idx = int(start_verse) - 1

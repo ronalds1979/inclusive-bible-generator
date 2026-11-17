@@ -23,6 +23,7 @@ AUDIO_REF_PATTERN = re.compile(
 )
 HEX_COLOR_PATTERN = re.compile(r'^#?(?:[0-9a-fA-F]{3}){1,2}$')
 FILENAME_SANITIZE_PATTERN = re.compile(r'[^\w\-]+')
+TEMPLATE_TOKEN_PATTERN = re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}')
 _WINDOWS_DEVICE_NAMES = {
     "CON", "PRN", "AUX", "NUL",
     "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
@@ -80,6 +81,19 @@ class Generator:
             return False
 
     @classmethod
+    def _is_valid_raster_image(cls, path, max_bytes=20 * 1024 * 1024):
+        if not cls._is_safe_regular_file(path, max_bytes=max_bytes):
+            return False
+        try:
+            with open(path, "rb") as f:
+                header = f.read(8)
+        except OSError:
+            return False
+        is_png = header.startswith(b"\x89PNG\r\n\x1a\n")
+        is_jpeg = header.startswith(b"\xff\xd8\xff")
+        return is_png or is_jpeg
+
+    @classmethod
     def _validate_safe_output_path(cls, output_path):
         if not output_path or not isinstance(output_path, str):
             raise ValueError("Invalid output path")
@@ -133,7 +147,7 @@ class Generator:
             return
         for filename in sorted(ALLOWED_LOCALE_FILES):
             locale_path = os.path.join(locales_dir, filename)
-            if not os.path.isfile(locale_path):
+            if not self._is_safe_regular_file(locale_path, max_bytes=1024 * 1024):
                 continue
             lang_code = filename[:-5]
             with open(locale_path, "r", encoding="utf-8") as f:
@@ -157,12 +171,14 @@ class Generator:
         template = self.locales.get(lang, {}).get(key, "")
         if not kwargs:
             return template
-        result = template
-        for k, v in kwargs.items():
-            result = result.replace(f"{{{k}}}", str(v))
-        return result
+        return TEMPLATE_TOKEN_PATTERN.sub(
+            lambda m: str(kwargs[m.group(1)]) if m.group(1) in kwargs else m.group(0),
+            template,
+        )
 
     def generate_texts(self, lang, verse, reference):
+        verse = (verse or "")[:5000]
+        reference = (reference or "")[:100]
         description = self.get_locale_string(lang, "default_description")
         alt_text = self.get_locale_string(lang, "alt_text_template", description=description, verse=verse, reference=reference)
         caption = self.get_locale_string(lang, "caption_template", verse=verse, reference=reference)
@@ -255,6 +271,8 @@ class Generator:
         return output_path
 
     def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0, max_dimension=None, background_dim=0.5):
+        verse = (verse or "")[:5000]
+        reference = (reference or "")[:100]
         lang_code = self.LANG_MAP.get(lang, "pt-BR")
         if lang_code == "pt-BR":
             lang_code = "pt"
@@ -285,13 +303,13 @@ class Generator:
                 target_height = max(1, int(round(target_height * render_scale)))
 
         # 🛡️ Sentinel: Enforce regular-file and 20MB file size limit on both custom and built-in images
-        if custom_image_path and self._is_safe_regular_file(custom_image_path):
+        if custom_image_path and self._is_valid_raster_image(custom_image_path):
             bg_path = custom_image_path
         else:
             # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
             safe_background_filename = os.path.basename(background_filename or "default.png")
             bg_path = os.path.join(self.backgrounds_dir, safe_background_filename)
-            if not self._is_safe_regular_file(bg_path):
+            if not self._is_valid_raster_image(bg_path):
                 bg_path = os.path.join(self.backgrounds_dir, "default.png")
 
         try:
@@ -489,6 +507,7 @@ class Generator:
         return output_path
 
     def wrap_text(self, text, font, max_width, draw):
+        text = (text or "")[:5000]
         # ⚡ Bolt: Key by stable (font.path, font.size) with LRU eviction instead of volatile id(font)
         font_id = (getattr(font, "path", None), getattr(font, "size", 0))
         if font_id[0] is None:
