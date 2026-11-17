@@ -42,3 +42,7 @@
 ## 2025-03-02 - O(n) String Manipulation to O(1) Translate Optimization
 **Learning:** Chained string manipulations like `.replace(" ", "_").replace(":", "_").replace("/", "_").replace("\\", "_")` loop over strings repeatedly resulting in O(n) complexity where `n` scales by the number of replaces.
 **Action:** Use Python's built-in `str.translate` functionality by pre-computing mappings via `str.maketrans()` on class level. This reduces the time complexity for substring replacements to roughly O(1) relative to chained replaces, minimizing unnecessary intermediate string objects.
+
+## 2026-11-17 - Fast PNG Compression, Cached Dimming LUTs & Canonical Book Cache
+**Learning:** Pillow's default PNG `compress_level=6` spends substantial CPU time compressing high-resolution verse exports, while non-50% background dimming rebuilds a 768-element LUT list comprehension per render. Additionally, rebuilding the 66-book canonical list and running `re.sub` on TTS strings adds avoidable overhead.
+**Action:** Save generated PNGs with `compress_level=1`, cache dimming LUTs by `dim_key` in `Generator.DARKEN_LUTS`, use `str.translate(ANGLE_BRACKET_STRIP_MAP)` for TTS angle-bracket stripping, cache canonical book lists in `App._CANONICAL_BOOKS_CACHE`, and hoist repeated locale lookups in `update_ui_texts()`.

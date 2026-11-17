@@ -41,6 +41,8 @@ class Generator:
 
     SAFE_REF_MAP = str.maketrans(" :/\\", "____")
     SSML_MAP = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
+    # ⚡ Bolt: Precompute translation table to strip angle brackets without per-call regex overhead
+    ANGLE_BRACKET_STRIP_MAP = str.maketrans("", "", "<>")
 
     @staticmethod
     def _is_safe_regular_file(path, max_bytes=20 * 1024 * 1024):
@@ -62,8 +64,18 @@ class Generator:
         cleaned = FILENAME_SANITIZE_PATTERN.sub('_', (name or "").lower()).strip('_')
         cleaned = os.path.basename(cleaned)[:80]
         return cleaned or "verse"
-    # ⚡ Bolt: Precompute 50% darken lookup table for opaque RGB backgrounds
+    # ⚡ Bolt: Precompute 50% darken lookup table and cache custom dimming LUTs
     DARKEN_LUT = [int(i * 127 / 255) for i in range(256)] * 3
+    DARKEN_LUTS = {0.5: DARKEN_LUT}
+
+    @classmethod
+    def _get_darken_lut(cls, dim_key):
+        lut = cls.DARKEN_LUTS.get(dim_key)
+        if lut is None:
+            dim_factor = 1.0 - dim_key
+            lut = [int(i * dim_factor) for i in range(256)] * 3
+            cls.DARKEN_LUTS[dim_key] = lut
+        return lut
 
     def __init__(self):
         self.base_dir = BASE_DIR
@@ -184,7 +196,7 @@ class Generator:
             os.close(temp_fd)
             try:
                 # 🛡️ Sentinel: Strip angle brackets to prevent SSML injection while avoiding double XML-escaping in edge-tts
-                safe_text_to_read = re.sub(r"[<>]", "", text_to_read)
+                safe_text_to_read = text_to_read.translate(self.ANGLE_BRACKET_STRIP_MAP)
 
                 # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
                 communicate = edge_tts.Communicate(safe_text_to_read, voice, rate="-15%")
@@ -300,12 +312,8 @@ class Generator:
                         img = base
                     elif img.mode != 'RGB':
                         img = img.convert('RGB')
-                    if dim_key == 0.5:
-                        img = img.point(self.DARKEN_LUT)
-                    elif dim_key > 0.0:
-                        dim_factor = 1.0 - safe_dim
-                        dim_lut = [int(i * dim_factor) for i in range(256)] * 3
-                        img = img.point(dim_lut)
+                    if dim_key > 0.0:
+                        img = img.point(self._get_darken_lut(dim_key))
                     bg_loaded = True
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))

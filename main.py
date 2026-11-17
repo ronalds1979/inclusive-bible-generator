@@ -396,7 +396,12 @@ class App(ctk.CTk):
         self.update_ui_texts()
         self.load_bible_versions()
 
+    _CANONICAL_BOOKS_CACHE = {}
+
     def _get_canonical_books(self, lang_prefix):
+        cached = self._CANONICAL_BOOKS_CACHE.get(lang_prefix)
+        if cached is not None:
+            return cached
         mapping = BOOK_MAPPING.get(lang_prefix, BOOK_MAPPING["en"])
         seen_nrs = set()
         books = []
@@ -404,6 +409,7 @@ class App(ctk.CTk):
             if nr not in seen_nrs:
                 seen_nrs.add(nr)
                 books.append(name)
+        self._CANONICAL_BOOKS_CACHE[lang_prefix] = books
         return books
 
     def _get_lang_prefix(self):
@@ -490,21 +496,25 @@ class App(ctk.CTk):
         self.generate_btn.configure(text=self.generator.get_locale_string(lang, "generate_btn"))
 
 
+        ratio_square = self.generator.get_locale_string(lang, "ratio_square")
+        ratio_portrait = self.generator.get_locale_string(lang, "ratio_portrait")
+        ratio_landscape = self.generator.get_locale_string(lang, "ratio_landscape")
+
         self.aspect_ratio_label.configure(text=self.generator.get_locale_string(lang, "aspect_ratio_label"))
         self.aspect_ratio_dropdown.configure(values=[
-            self.generator.get_locale_string(lang, "ratio_square"),
-            self.generator.get_locale_string(lang, "ratio_portrait"),
-            self.generator.get_locale_string(lang, "ratio_landscape")
+            ratio_square,
+            ratio_portrait,
+            ratio_landscape,
         ])
 
         # Keep selected option in sync
         current_ratio = self.aspect_ratio_var.get()
         if "1:1" in current_ratio or "Square" in current_ratio or "Quadrado" in current_ratio or "Cuadrado" in current_ratio:
-            self.aspect_ratio_var.set(self.generator.get_locale_string(lang, "ratio_square"))
+            self.aspect_ratio_var.set(ratio_square)
         elif "3:4" in current_ratio or "Portrait" in current_ratio or "Retrato" in current_ratio:
-            self.aspect_ratio_var.set(self.generator.get_locale_string(lang, "ratio_portrait"))
+            self.aspect_ratio_var.set(ratio_portrait)
         elif "4:3" in current_ratio or "Landscape" in current_ratio or "Paisagem" in current_ratio or "Paisaje" in current_ratio:
-            self.aspect_ratio_var.set(self.generator.get_locale_string(lang, "ratio_landscape"))
+            self.aspect_ratio_var.set(ratio_landscape)
 
         self.background_label.configure(text=self.generator.get_locale_string(lang, "background_label"))
         self.custom_image_btn.configure(text=self.generator.get_locale_string(lang, "custom_image_btn"))
@@ -512,26 +522,32 @@ class App(ctk.CTk):
 
         self.font_type_label.configure(text=self.generator.get_locale_string(lang, "font_type_label"))
 
+        color_white = self.generator.get_locale_string(lang, "color_white")
+        color_black = self.generator.get_locale_string(lang, "color_black")
+        color_gold = self.generator.get_locale_string(lang, "color_gold")
+        color_red = self.generator.get_locale_string(lang, "color_red")
+        color_custom = self.generator.get_locale_string(lang, "color_custom")
+
         self.font_color_dropdown.configure(values=[
-            self.generator.get_locale_string(lang, "color_white"),
-            self.generator.get_locale_string(lang, "color_black"),
-            self.generator.get_locale_string(lang, "color_gold"),
-            self.generator.get_locale_string(lang, "color_red"),
-            self.generator.get_locale_string(lang, "color_custom")
+            color_white,
+            color_black,
+            color_gold,
+            color_red,
+            color_custom,
         ])
 
         # Keep selected color in sync with new language
         current_color = self.font_color_var.get()
         if current_color == "#FFFFFF":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_white"))
+            self.font_color_dropdown.set(color_white)
         elif current_color == "#000000":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_black"))
+            self.font_color_dropdown.set(color_black)
         elif current_color == "#FFD700":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_gold"))
+            self.font_color_dropdown.set(color_gold)
         elif current_color == "#FF0000":
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_red"))
+            self.font_color_dropdown.set(color_red)
         else:
-            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_custom"))
+            self.font_color_dropdown.set(color_custom)
         self.font_color_label.configure(text=self.generator.get_locale_string(lang, "font_color_label"))
         self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {int(self.font_size_var.get())}")
         self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {int(self.y_offset_var.get())}")
@@ -539,16 +555,19 @@ class App(ctk.CTk):
         self.audio_generate_checkbox.configure(text=self.generator.get_locale_string(lang, "audio_label"))
         self.gender_label.configure(text=self.generator.get_locale_string(lang, "gender_label"))
 
+        gender_female = self.generator.get_locale_string(lang, "gender_female")
+        gender_male = self.generator.get_locale_string(lang, "gender_male")
+
         self.gender_dropdown.configure(values=[
-            self.generator.get_locale_string(lang, "gender_female"),
-            self.generator.get_locale_string(lang, "gender_male")
+            gender_female,
+            gender_male,
         ])
 
         current_gender = self.gender_var.get()
         if "Female" in current_gender or "Feminina" in current_gender or "Femenina" in current_gender:
-            self.gender_var.set(self.generator.get_locale_string(lang, "gender_female"))
+            self.gender_var.set(gender_female)
         else:
-            self.gender_var.set(self.generator.get_locale_string(lang, "gender_male"))
+            self.gender_var.set(gender_male)
 
         self.copy_alt_btn.configure(text=self.generator.get_locale_string(lang, "copy_alt_text_btn"))
         self.copy_caption_btn.configure(text=self.generator.get_locale_string(lang, "copy_caption_btn"))
@@ -917,7 +936,8 @@ class App(ctk.CTk):
                     font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset,
                     background_dim=background_dim
                 )
-                pil_img.save(image_save_path, "PNG")
+                # ⚡ Bolt: Use fast zlib compression level 1 when exporting final PNGs
+                pil_img.save(image_save_path, "PNG", compress_level=1)
 
                 # Generate Texts
                 alt_text, caption = self.generator.generate_texts(lang, verse, reference)
