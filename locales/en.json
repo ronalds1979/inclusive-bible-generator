@@ -62,5 +62,7 @@
   "contrast_warning_msg": "⚠️ Low text contrast: consider increasing Background Dim or switching text color.",
   "contrast_fix_btn": "Auto-Fix Contrast",
   "open_output_btn": "📂 Open Folder",
-  "drag_preview_hint": "Tip: Drag up/down on the preview to adjust vertical position (double-click to center)."
+  "drag_preview_hint": "Tip: Drag up/down on the preview to adjust vertical position (double-click to center).",
+  "reset_font_size_tooltip": "Reset font size to default (60)",
+  "clear_inputs_tooltip": "Clear verse and reference fields"
 }

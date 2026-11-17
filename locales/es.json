@@ -62,5 +62,7 @@
   "contrast_warning_msg": "⚠️ Bajo contraste: considera aumentar Oscurecer Fondo o cambiar el color del texto.",
   "contrast_fix_btn": "Ajustar Contraste",
   "open_output_btn": "📂 Abrir Carpeta",
-  "drag_preview_hint": "Consejo: Arrastra en la vista previa para mover el texto (doble clic para centrar)."
+  "drag_preview_hint": "Consejo: Arrastra en la vista previa para mover el texto (doble clic para centrar).",
+  "reset_font_size_tooltip": "Restablecer tamaño de fuente predeterminado (60)",
+  "clear_inputs_tooltip": "Limpiar campos de versículo y referencia"
 }

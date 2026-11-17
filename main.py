@@ -151,8 +151,30 @@ class App(ctk.CTk):
         self.reference_input.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky="ew")
 
         # Verse Input
-        self.verse_label = ctk.CTkLabel(self.left_frame, text="Versículo Bíblico:")
-        self.verse_label.grid(row=5, column=0, pady=(0, 0), sticky="w")
+        self.verse_header = ctk.CTkFrame(self.left_frame, fg_color="transparent")
+        self.verse_header.grid(row=5, column=0, columnspan=2, pady=(0, 2), sticky="ew")
+        self.verse_header.grid_columnconfigure(0, weight=1)
+
+        self.verse_label = ctk.CTkLabel(self.verse_header, text="Versículo Bíblico:")
+        self.verse_label.grid(row=0, column=0, sticky="w")
+
+        self.clear_inputs_btn = ctk.CTkButton(
+            self.verse_header,
+            text="✕",
+            width=28,
+            height=22,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            text_color=("gray20", "gray85"),
+            command=self.clear_verse_inputs,
+        )
+        self.clear_inputs_btn.grid(row=0, column=1, sticky="e")
+        self.clear_inputs_btn.bind(
+            "<Enter>",
+            lambda _e: self._show_hover_hint("clear_inputs_tooltip"),
+        )
+        self.clear_inputs_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
         self.verse_input = ctk.CTkTextbox(self.left_frame, height=80)
         self.verse_input.grid(row=6, column=0, columnspan=2, pady=(0, 10), sticky="ew")
@@ -290,8 +312,30 @@ class App(ctk.CTk):
         self.font_color_entry.grid_remove()
         self.color_picker_btn.grid_remove()
 
-        self.font_size_label = ctk.CTkLabel(self.font_config_frame, text="Tamanho da Fonte: 60")
-        self.font_size_label.grid(row=0, column=2, pady=(0, 5), padx=(5, 0), sticky="w")
+        self.font_size_header = ctk.CTkFrame(self.font_config_frame, fg_color="transparent")
+        self.font_size_header.grid(row=0, column=2, pady=(0, 5), padx=(5, 0), sticky="ew")
+        self.font_size_header.grid_columnconfigure(0, weight=1)
+
+        self.font_size_label = ctk.CTkLabel(self.font_size_header, text="Tamanho da Fonte: 60")
+        self.font_size_label.grid(row=0, column=0, sticky="w")
+
+        self.reset_font_size_btn = ctk.CTkButton(
+            self.font_size_header,
+            text="↺ 60",
+            width=48,
+            height=22,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            text_color=("gray20", "gray85"),
+            command=self.reset_font_size,
+        )
+        self.reset_font_size_btn.grid(row=0, column=1, sticky="e")
+        self.reset_font_size_btn.bind(
+            "<Enter>",
+            lambda _e: self._show_hover_hint("reset_font_size_tooltip"),
+        )
+        self.reset_font_size_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
         self.font_size_var = ctk.IntVar(value=60)
         self.font_size_slider = ctk.CTkSlider(self.font_config_frame, from_=20, to=120, variable=self.font_size_var, command=self._on_font_size_changed)
@@ -376,6 +420,10 @@ class App(ctk.CTk):
         # Desktop keyboard shortcuts
         self.bind("<Control-g>", lambda _e: self.generate_content())
         self.bind("<Control-G>", lambda _e: self.generate_content())
+        self.bind("<Control-f>", lambda _e: self.fetch_verse())
+        self.bind("<Control-F>", lambda _e: self.fetch_verse())
+        self.bind("<Control-d>", lambda _e: self.load_verse_of_the_day())
+        self.bind("<Control-D>", lambda _e: self.load_verse_of_the_day())
         self.bind("<Control-Shift-C>", lambda _e: self.copy_alt())
         self.bind("<Control-Shift-c>", lambda _e: self.copy_alt())
 
@@ -481,6 +529,17 @@ class App(ctk.CTk):
     def _on_y_offset_changed(self, value):
         self.trigger_preview()
 
+    def reset_font_size(self):
+        self.font_size_var.set(60)
+        self._on_font_size_changed(60)
+
+    def clear_verse_inputs(self):
+        self.reference_input.delete(0, "end")
+        self.verse_input.delete("1.0", "end")
+        self._last_preview_params = None
+        self.trigger_preview()
+        self.preview_content()
+
     def reset_y_offset(self):
         self.y_offset_var.set(0)
         self._on_y_offset_changed(0)
@@ -504,6 +563,7 @@ class App(ctk.CTk):
 
         self.title(self.generator.get_locale_string(lang, "title"))
         self.instructions_label.configure(text=self.generator.get_locale_string(lang, "instructions"))
+        self._last_verse_label_text = None
         self.verse_label.configure(text=self.generator.get_locale_string(lang, "verse_label"))
         self.reference_label.configure(text=self.generator.get_locale_string(lang, "reference_label"))
         self.bible_version_label.configure(text=self.generator.get_locale_string(lang, "bible_version_label"))
@@ -786,6 +846,17 @@ class App(ctk.CTk):
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
 
+        verse_base_label = self.generator.get_locale_string(lang, "verse_label")
+        verse_label_text = f"{verse_base_label} ({len(verse)})" if verse else verse_base_label
+        if getattr(self, "_last_verse_label_text", None) != verse_label_text:
+            self._last_verse_label_text = verse_label_text
+            self.verse_label.configure(text=verse_label_text)
+
+        clear_state = "normal" if (verse or reference) else "disabled"
+        if getattr(self, "_last_clear_state", None) != clear_state:
+            self._last_clear_state = clear_state
+            self.clear_inputs_btn.configure(state=clear_state)
+
         fetch_state = (
             "normal"
             if reference and not getattr(self, "api_loading", False) and not getattr(self, "_fetching_verse", False)
@@ -923,13 +994,42 @@ class App(ctk.CTk):
 
         return verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, self.custom_image_path, background_dim
 
+    def _sync_live_output_texts(self, lang, verse, reference):
+        texts_key = (lang, verse, reference)
+        if getattr(self, "_last_live_texts_key", None) == texts_key:
+            return
+        self._last_live_texts_key = texts_key
+        if verse and reference:
+            alt_text, caption = self.generator.generate_texts(lang, verse, reference)
+            self.alt_text = alt_text
+            self.caption = caption
+            alt_label = self.generator.get_locale_string(lang, "alt_text_label")
+            cap_label = self.generator.get_locale_string(lang, "caption_label")
+            display_text = f"--- {alt_label} ---\n{self.alt_text}\n\n--- {cap_label} ---\n{self.caption}"
+            self.output_textbox.configure(state="normal")
+            self.output_textbox.delete("1.0", "end")
+            self.output_textbox.insert("1.0", display_text)
+            self.output_textbox.configure(state="disabled")
+            self.copy_alt_btn.configure(state="normal")
+            self.copy_caption_btn.configure(state="normal")
+        else:
+            self.alt_text = ""
+            self.caption = ""
+            self.output_textbox.configure(state="normal")
+            self.output_textbox.delete("1.0", "end")
+            self.output_textbox.configure(state="disabled")
+            self.copy_alt_btn.configure(state="disabled")
+            self.copy_caption_btn.configure(state="disabled")
+
     def preview_content(self):
         current_params = self.get_current_params()
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path, background_dim = current_params
+        lang = self.get_lang_key()
+        self._sync_live_output_texts(lang, verse, reference)
 
         if not verse or not reference:
             self._preview_request_id = getattr(self, "_preview_request_id", 0) + 1
-            self.preview_label.configure(image="", text=self.generator.get_locale_string(self.get_lang_key(), "preview_empty_state"))
+            self.preview_label.configure(image="", text=self.generator.get_locale_string(lang, "preview_empty_state"))
             self.preview_label.image = None
             return
 

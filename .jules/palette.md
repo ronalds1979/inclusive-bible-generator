@@ -42,3 +42,7 @@
 ## 2026-11-17 - Non-Destructive Hover Hints, Contrast Guardrail & Immediate Preview
 **Learning:** Binding `<Leave>` on icon buttons to unconditionally clear a shared status label wipes out active success or error notifications whenever the user moves the pointer past a button. Additionally, launching with an empty preview pane and no low-contrast warning leaves desktop users guessing until export.
 **Action:** Snapshot and conditionally restore the previous status message/color on hover exit, auto-populate the initial verse preview on startup, add a real-time contrast warning banner with a one-click fix, support vertical drag/double-click on the preview canvas, and expose an "Open Folder" button after generation.
+
+## 2026-11-17 - Live Alt-Text/Caption Preview, Quick Clear & Font Reset
+**Learning:** Waiting until full image/audio export before populating the Alt-Text and Social Media Caption textbox (and enabling copy buttons) prevents users who only want accessible text or quick copy-paste workflows from seeing immediate feedback. Also, having a reset shortcut for vertical offset without an equivalent reset for font size feels asymmetric.
+**Action:** Generate and display Alt-Text and Caption synchronously during debounced live previews (and clear/disable copy buttons when inputs are empty), add a one-click `↺ 60` font-size reset button, surface a live character count with a `✕` clear action above the verse box, and bind `Ctrl+F` / `Ctrl+D` shortcuts.

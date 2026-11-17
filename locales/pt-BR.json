@@ -62,5 +62,7 @@
   "contrast_warning_msg": "⚠️ Baixo contraste: considere aumentar o Escurecer Fundo ou mudar a cor do texto.",
   "contrast_fix_btn": "Ajustar Contraste",
   "open_output_btn": "📂 Abrir Pasta",
-  "drag_preview_hint": "Dica: Arraste na prévia para ajustar a posição vertical (duplo clique para centralizar)."
+  "drag_preview_hint": "Dica: Arraste na prévia para ajustar a posição vertical (duplo clique para centralizar).",
+  "reset_font_size_tooltip": "Restaurar tamanho padrão da fonte (60)",
+  "clear_inputs_tooltip": "Limpar campos de versículo e referência"
 }
