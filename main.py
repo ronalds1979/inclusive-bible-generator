@@ -417,8 +417,13 @@ class App(ctk.CTk):
 
     def apply_quick_reference(self, fetch=True):
         book = self.book_var.get().strip()
-        chapter = self.chapter_var.get().strip() or "1"
-        verse = self.verse_num_var.get().strip()
+        chapter = re.sub(r"\D", "", self.chapter_var.get())[:3] or "1"
+        raw_verse = re.sub(r"[^\d\-]", "", self.verse_num_var.get().strip())[:10].strip("-")
+        if "-" in raw_verse:
+            parts = [p for p in raw_verse.split("-") if p]
+            verse = f"{parts[0]}-{parts[1]}" if len(parts) >= 2 else (parts[0] if parts else "")
+        else:
+            verse = raw_verse
         ref = f"{book} {chapter}:{verse}" if verse else f"{book} {chapter}"
         self.reference_input.delete(0, "end")
         self.reference_input.insert(0, ref)
@@ -763,15 +768,8 @@ class App(ctk.CTk):
             filetypes=[("Image files", "*.png *.jpg *.jpeg")]
         )
         if file_path:
-            # 🛡️ Sentinel: Reject non-regular files and oversized files (> 20MB) to prevent Out-Of-Memory / UI freeze DoS
-            try:
-                if not os.path.isfile(file_path) or os.path.getsize(file_path) > 20 * 1024 * 1024:
-                    self.status_label.configure(
-                        text=self.generator.get_locale_string(self.get_lang_key(), "image_size_limit_error"),
-                        text_color="red",
-                    )
-                    return
-            except OSError:
+            # 🛡️ Sentinel: Reject non-regular files, symlinks/junctions, device names, and oversized files (> 20MB)
+            if not self.generator._is_safe_regular_file(file_path):
                 self.status_label.configure(
                     text=self.generator.get_locale_string(self.get_lang_key(), "image_size_limit_error"),
                     text_color="red",
@@ -936,8 +934,8 @@ class App(ctk.CTk):
                     font_type=font_type, font_color=font_color, font_size=font_size, y_offset=y_offset,
                     background_dim=background_dim
                 )
-                # ⚡ Bolt: Use fast zlib compression level 1 when exporting final PNGs
-                pil_img.save(image_save_path, "PNG", compress_level=1)
+                # ⚡ Bolt: Use fast zlib compression level 1 when exporting final PNGs atomically
+                self.generator.save_image_atomic(pil_img, image_save_path, compress_level=1)
 
                 # Generate Texts
                 alt_text, caption = self.generator.generate_texts(lang, verse, reference)

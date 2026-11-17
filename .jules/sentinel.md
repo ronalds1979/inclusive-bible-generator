@@ -54,3 +54,9 @@
 - Added in-flight guards (`_fetching_verse`, `_is_generating`) in `main.py` to prevent `<Return>` thread flooding and `trigger_preview()` re-enabling `generate_btn` mid-generation.
 - Added atomic temporary file writes with a 15 MB audio byte cap in `generate_audio()`, removed double XML escaping (`edge-tts` handles XML escaping internally; `<` and `>` are stripped directly), fixed `AUDIO_REF_PATTERN` overlapping quantifiers, enforced `_is_safe_regular_file` checks on custom and built-in images, clamped crop/font/offset bounds, and excluded `*.*` from save dialogs.
 - Removed unused `api_key_label` from locale files, pinned `requests==2.34.2`, and expanded `.gitignore`.
+
+## 2026-11-17 - Follow-up Audit Hardening
+**Vulnerabilities Remediated:**
+- Replaced the overlapping quantifier in `GetBibleAPI.REFERENCE_PATTERN` (`getbible_api.py`) to prevent ReDoS and added circumflex vowels (`âêîôûÂÊÎÔÛ`) so Portuguese/Spanish book names such as `Gênesis` and `Êxodo` parse properly.
+- Enhanced `Generator._is_safe_regular_file` and added `_validate_safe_output_path` / `save_image_atomic` (`generator.py`) to reject symlinks/junctions across the path lineage, block Windows reserved device names on exports, validate font files before loading, and bound `DARKEN_LUTS`.
+- Sanitized quick-reference chapter/verse inputs in `main.py`, routed custom image validation through `_is_safe_regular_file`, used `save_image_atomic` for PNG exports, and added `test_security.py`.

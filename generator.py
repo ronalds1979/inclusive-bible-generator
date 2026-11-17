@@ -45,18 +45,52 @@ class Generator:
     ANGLE_BRACKET_STRIP_MAP = str.maketrans("", "", "<>")
 
     @staticmethod
-    def _is_safe_regular_file(path, max_bytes=20 * 1024 * 1024):
+    def _is_reparse_point(path):
+        is_junction = getattr(os.path, "isjunction", lambda _p: False)
+        return os.path.islink(path) or is_junction(path)
+
+    @classmethod
+    def _has_reparse_in_lineage(cls, path):
+        curr = os.path.abspath(path)
+        visited = set()
+        while curr and curr not in visited:
+            visited.add(curr)
+            if os.path.lexists(curr) and cls._is_reparse_point(curr):
+                return True
+            parent = os.path.dirname(curr)
+            if parent == curr:
+                break
+            curr = parent
+        return False
+
+    @classmethod
+    def _is_safe_regular_file(cls, path, max_bytes=20 * 1024 * 1024):
         if not path or not isinstance(path, str):
             return False
         if path.startswith("\\\\.\\") or path.startswith("\\\\?\\"):
             return False
         base = os.path.splitext(os.path.basename(path))[0].upper()
-        if base in _WINDOWS_DEVICE_NAMES:
+        if not base or base in _WINDOWS_DEVICE_NAMES:
+            return False
+        if cls._has_reparse_in_lineage(path):
             return False
         try:
             return os.path.isfile(path) and 0 < os.path.getsize(path) <= max_bytes
         except OSError:
             return False
+
+    @classmethod
+    def _validate_safe_output_path(cls, output_path):
+        if not output_path or not isinstance(output_path, str):
+            raise ValueError("Invalid output path")
+        if output_path.startswith("\\\\.\\") or output_path.startswith("\\\\?\\"):
+            raise ValueError("Device paths are not permitted")
+        filename = os.path.basename(output_path)
+        base = os.path.splitext(filename)[0].upper()
+        if not filename or not base or base in _WINDOWS_DEVICE_NAMES:
+            raise ValueError("Reserved or invalid output filename")
+        if cls._has_reparse_in_lineage(output_path):
+            raise ValueError("Refusing to write through symlink or junction")
 
     @staticmethod
     def sanitize_filename(name):
@@ -72,6 +106,9 @@ class Generator:
     def _get_darken_lut(cls, dim_key):
         lut = cls.DARKEN_LUTS.get(dim_key)
         if lut is None:
+            if len(cls.DARKEN_LUTS) > 32:
+                cls.DARKEN_LUTS.clear()
+                cls.DARKEN_LUTS[0.5] = cls.DARKEN_LUT
             dim_factor = 1.0 - dim_key
             lut = [int(i * dim_factor) for i in range(256)] * 3
             cls.DARKEN_LUTS[dim_key] = lut
@@ -173,6 +210,7 @@ class Generator:
             filename = f"{safe_ref}_{lang_code}.mp3"
             output_path = os.path.join(self.output_dir, filename)
 
+        self._validate_safe_output_path(output_path)
         target_dir = os.path.dirname(os.path.abspath(output_path))
         os.makedirs(target_dir, exist_ok=True)
 
@@ -371,15 +409,19 @@ class Generator:
             font_large, font_small = cached_fonts
         else:
             try:
+                if not self._is_safe_regular_file(font_path):
+                    raise OSError("Unsafe or missing font file")
                 font_large = ImageFont.truetype(font_path, safe_font_size)
                 font_small = ImageFont.truetype(font_path, max(8, int(safe_font_size * 0.66)))
-            except IOError:
+            except (IOError, OSError):
                 # Fallback
                 default_font_path = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
                 try:
+                    if not self._is_safe_regular_file(default_font_path):
+                        raise OSError("Unsafe or missing default font file")
                     font_large = ImageFont.truetype(default_font_path, safe_font_size)
                     font_small = ImageFont.truetype(default_font_path, max(8, int(safe_font_size * 0.66)))
-                except IOError:
+                except (IOError, OSError):
                     font_large = ImageFont.load_default()
                     font_small = ImageFont.load_default()
             # 🛡️ Sentinel: Bound the font cache size with LRU eviction to prevent cache thrashing on slider drags
@@ -422,6 +464,29 @@ class Generator:
         draw.text((x_ref, y_ref), reference, font=font_small, fill=rgba_color)
 
         return img
+
+    def save_image_atomic(self, pil_img, output_path, compress_level=1):
+        """Validate output_path and atomically write the rendered PNG image."""
+        self._validate_safe_output_path(output_path)
+        abs_output = os.path.abspath(output_path)
+        target_dir = os.path.dirname(abs_output)
+        os.makedirs(target_dir, exist_ok=True)
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=target_dir,
+            prefix=".tmp_img_",
+            suffix=".png",
+        )
+        os.close(temp_fd)
+        try:
+            pil_img.save(temp_path, "PNG", compress_level=compress_level)
+            os.replace(temp_path, abs_output)
+        finally:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+        return output_path
 
     def wrap_text(self, text, font, max_width, draw):
         # ⚡ Bolt: Key by stable (font.path, font.size) with LRU eviction instead of volatile id(font)
