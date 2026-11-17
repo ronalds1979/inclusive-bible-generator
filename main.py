@@ -26,6 +26,8 @@ class App(ctk.CTk):
         self.generator = Generator()
         self.current_lang = "Português (Brasil)"
         self.api_loading = True
+        self._fetching_verse = False
+        self._is_generating = False
 
         self.title("inclusive-bible-generator")
         self.geometry("1100x750")
@@ -101,7 +103,13 @@ class App(ctk.CTk):
         self.bg_frame.grid_columnconfigure(1, weight=1)
 
         self.bg_var = ctk.StringVar(value="default.png")
-        bg_files = [f for f in os.listdir(self.generator.backgrounds_dir) if f.endswith('.png') or f.endswith('.jpg')]
+        try:
+            bg_files = [
+                f for f in os.listdir(self.generator.backgrounds_dir)
+                if f.endswith('.png') or f.endswith('.jpg')
+            ]
+        except OSError:
+            bg_files = []
         if not bg_files:
             bg_files = ["default.png"]
 
@@ -126,7 +134,12 @@ class App(ctk.CTk):
         self.font_type_label.grid(row=0, column=0, pady=(0, 5), padx=(0, 5), sticky="w")
 
         self.font_var = ctk.StringVar(value="Roboto-Regular.ttf")
-        font_files = [f for f in os.listdir(self.generator.fonts_dir) if f.endswith('.ttf')]
+        try:
+            font_files = [f for f in os.listdir(self.generator.fonts_dir) if f.endswith('.ttf')]
+        except OSError:
+            font_files = []
+        if not font_files:
+            font_files = ["Roboto-Regular.ttf"]
         self.font_dropdown = ctk.CTkOptionMenu(
             self.font_config_frame, values=font_files, variable=self.font_var, command=self.trigger_preview
         )
@@ -425,6 +438,9 @@ class App(ctk.CTk):
         self.status_label.configure(text=self.generator.get_locale_string(lang, "error_loading_versions_msg"), text_color="red")
 
     def fetch_verse(self):
+        if getattr(self, "_fetching_verse", False) or getattr(self, "api_loading", False):
+            return
+
         version_name = self.bible_version_var.get()
         reference = self.reference_input.get().strip()
         lang = self.get_lang_key()
@@ -437,6 +453,8 @@ class App(ctk.CTk):
         if not bible_id:
             return
 
+        self._fetching_verse = True
+        self._last_fetch_state = "disabled"
         original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
         self.fetch_btn.configure(state="disabled", text="⏳ " + original_text)
 
@@ -444,18 +462,23 @@ class App(ctk.CTk):
             fetching_msg = self.generator.get_locale_string(lang, "fetching_verse_msg")
             self.after(0, lambda: self.status_label.configure(text=fetching_msg, text_color="gray"))
 
-            content = GetBibleAPI.get_passage(bible_id, reference, lang)
+            try:
+                content = GetBibleAPI.get_passage(bible_id, reference, lang)
+            except Exception:
+                content = None
             self.after(0, lambda: self._update_verse_ui(content))
 
         threading.Thread(target=_fetch, daemon=True).start()
 
     def _update_verse_ui(self, content):
+        self._fetching_verse = False
+        self._last_fetch_state = "normal"
         self.fetch_btn.configure(state="normal")
         lang = self.get_lang_key()
         original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
         if content:
             self.verse_input.delete("1.0", "end")
-            self.verse_input.insert("1.0", content)
+            self.verse_input.insert("1.0", content[:5000])
             self.status_label.configure(text=self.generator.get_locale_string(lang, "verse_fetched_msg"), text_color="green")
 
             self.fetch_btn.configure(text="✓ " + original_text)
@@ -480,12 +503,20 @@ class App(ctk.CTk):
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
 
-        fetch_state = "normal" if reference and not getattr(self, "api_loading", False) else "disabled"
+        fetch_state = (
+            "normal"
+            if reference and not getattr(self, "api_loading", False) and not getattr(self, "_fetching_verse", False)
+            else "disabled"
+        )
         if getattr(self, "_last_fetch_state", None) != fetch_state:
             self._last_fetch_state = fetch_state
             self.fetch_btn.configure(state=fetch_state)
 
-        generate_state = "normal" if verse and reference else "disabled"
+        generate_state = (
+            "normal"
+            if verse and reference and not getattr(self, "_is_generating", False)
+            else "disabled"
+        )
         if getattr(self, "_last_generate_state", None) != generate_state:
             self._last_generate_state = generate_state
             self.generate_btn.configure(state=generate_state)
@@ -562,9 +593,9 @@ class App(ctk.CTk):
             filetypes=[("Image files", "*.png *.jpg *.jpeg")]
         )
         if file_path:
-            # 🛡️ Sentinel: Reject oversized files (> 20MB) to prevent Out-Of-Memory / UI freeze DoS
+            # 🛡️ Sentinel: Reject non-regular files and oversized files (> 20MB) to prevent Out-Of-Memory / UI freeze DoS
             try:
-                if os.path.getsize(file_path) > 20 * 1024 * 1024:
+                if not os.path.isfile(file_path) or os.path.getsize(file_path) > 20 * 1024 * 1024:
                     return
             except OSError:
                 return
@@ -653,6 +684,9 @@ class App(ctk.CTk):
         self.preview_label.image = ctk_img
 
     def generate_content(self):
+        if getattr(self, "_is_generating", False):
+            return
+
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path = self.get_current_params()
         if not verse or not reference:
             return
@@ -669,10 +703,12 @@ class App(ctk.CTk):
             defaultextension=".png",
             initialfile=default_image_filename,
             title=f"{self.generator.get_locale_string(lang, 'save_btn')} - {self.generator.get_locale_string(lang, 'save_image_suffix')}",
-            filetypes=[("PNG files", "*.png"), ("All files", "*.*")]
+            filetypes=[("PNG files", "*.png")]
         )
         if not image_save_path:
             return
+        if not image_save_path.lower().endswith(".png"):
+            image_save_path += ".png"
 
         audio_save_path = None
         if self.audio_generate_var.get():
@@ -681,11 +717,15 @@ class App(ctk.CTk):
                 defaultextension=".mp3",
                 initialfile=default_audio_filename,
                 title=f"{self.generator.get_locale_string(lang, 'save_btn')} - {self.generator.get_locale_string(lang, 'save_audio_suffix')}",
-                filetypes=[("MP3 files", "*.mp3"), ("All files", "*.*")]
+                filetypes=[("MP3 files", "*.mp3")]
             )
             if not audio_save_path:
                 return
+            if not audio_save_path.lower().endswith(".mp3"):
+                audio_save_path += ".mp3"
 
+        self._is_generating = True
+        self._last_generate_state = "disabled"
         self.status_label.configure(text=self.generator.get_locale_string(lang, "generating_files_msg"), text_color="gray")
         original_generate_text = self.generator.get_locale_string(lang, "generate_btn")
         self.generate_btn.configure(state="disabled", text="⏳ " + original_generate_text)
@@ -725,7 +765,9 @@ class App(ctk.CTk):
                 if audio_future is not None:
                     try:
                         audio_path = audio_future.result()
-                        audio_msg = self.generator.get_locale_string(lang, "audio_saved_msg").format(path=os.path.abspath(audio_path))
+                        audio_msg = self.generator.get_locale_string(
+                            lang, "audio_saved_msg", path=os.path.abspath(audio_path)
+                        )
                     except Exception:
                         # 🛡️ Sentinel: Do not leak exception strings
                         audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
@@ -734,12 +776,19 @@ class App(ctk.CTk):
             except Exception:
                 # 🛡️ Sentinel: Catch unhandled thread exceptions and update UI generically
                 err_msg = self.generator.get_locale_string(lang, "generate_error_msg")
-                self.after(0, lambda: self.status_label.configure(text=err_msg, text_color="red"))
-                self.after(0, lambda: self.generate_btn.configure(state="normal", text=original_generate_text))
+                self.after(0, self._on_generate_error, err_msg, original_generate_text)
 
         threading.Thread(target=_process, daemon=True).start()
 
+    def _on_generate_error(self, err_msg, original_generate_text):
+        self._is_generating = False
+        self._last_generate_state = "normal"
+        self.status_label.configure(text=err_msg, text_color="red")
+        self.generate_btn.configure(state="normal", text=original_generate_text)
+
     def _on_generate_complete(self, lang, audio_msg, image_save_path, alt_text, caption):
+        self._is_generating = False
+        self._last_generate_state = "normal"
         self.last_generated_image_path = image_save_path
         self.alt_text = alt_text
         self.caption = caption

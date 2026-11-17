@@ -1,18 +1,33 @@
 import os
 import json
 import asyncio
+import logging
+import tempfile
 import threading
 from collections import OrderedDict
 import edge_tts
 import re
 from PIL import Image, ImageDraw, ImageFont
 
+logger = logging.getLogger(__name__)
+
 Image.MAX_IMAGE_PIXELS = 25_000_000
 MAX_IMAGE_PIXELS = 25_000_000
+MAX_AUDIO_BYTES = 15 * 1024 * 1024
 
-AUDIO_REF_PATTERN = re.compile(r"^([^\d]+|\d?\s*[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)\s+(\d+)[:\.](\d+)")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ALLOWED_LOCALE_FILES = {"en.json", "es.json", "pt-BR.json"}
+
+AUDIO_REF_PATTERN = re.compile(
+    r"^((?:\d\s+)?[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+(?:\s+[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)*)\s+(\d+)[:\.](\d+)"
+)
 HEX_COLOR_PATTERN = re.compile(r'^#?(?:[0-9a-fA-F]{3}){1,2}$')
 FILENAME_SANITIZE_PATTERN = re.compile(r'[^\w\-]+')
+_WINDOWS_DEVICE_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+}
 
 class Generator:
     LANG_MAP = {
@@ -28,6 +43,20 @@ class Generator:
     SSML_MAP = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
 
     @staticmethod
+    def _is_safe_regular_file(path, max_bytes=20 * 1024 * 1024):
+        if not path or not isinstance(path, str):
+            return False
+        if path.startswith("\\\\.\\") or path.startswith("\\\\?\\"):
+            return False
+        base = os.path.splitext(os.path.basename(path))[0].upper()
+        if base in _WINDOWS_DEVICE_NAMES:
+            return False
+        try:
+            return os.path.isfile(path) and 0 < os.path.getsize(path) <= max_bytes
+        except OSError:
+            return False
+
+    @staticmethod
     def sanitize_filename(name):
         """Sanitize a string into a safe single-segment filename."""
         cleaned = FILENAME_SANITIZE_PATTERN.sub('_', (name or "").lower()).strip('_')
@@ -37,11 +66,12 @@ class Generator:
     DARKEN_LUT = [int(i * 127 / 255) for i in range(256)] * 3
 
     def __init__(self):
+        self.base_dir = BASE_DIR
         self.locales = {}
         self.load_locales()
-        self.fonts_dir = os.path.join("assets", "fonts")
-        self.backgrounds_dir = os.path.join("assets", "backgrounds")
-        self.output_dir = "output"
+        self.fonts_dir = os.path.join(self.base_dir, "assets", "fonts")
+        self.backgrounds_dir = os.path.join(self.base_dir, "assets", "backgrounds")
+        self.output_dir = os.path.join(self.base_dir, "output")
         os.makedirs(self.output_dir, exist_ok=True)
         self._cache_lock = threading.Lock()
         self._bg_cache = OrderedDict()
@@ -49,28 +79,39 @@ class Generator:
         self._wrap_cache = OrderedDict()
 
     def load_locales(self):
-        locales_dir = "locales"
-        for filename in os.listdir(locales_dir):
-            if filename.endswith(".json"):
-                lang_code = filename[:-5]
-                with open(os.path.join(locales_dir, filename), "r", encoding="utf-8") as f:
-                    self.locales[lang_code] = json.load(f)
+        locales_dir = os.path.join(self.base_dir, "locales")
+        if not os.path.isdir(locales_dir):
+            return
+        for filename in sorted(ALLOWED_LOCALE_FILES):
+            locale_path = os.path.join(locales_dir, filename)
+            if not os.path.isfile(locale_path):
+                continue
+            lang_code = filename[:-5]
+            with open(locale_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self.locales[lang_code] = {
+                    k: v for k, v in data.items()
+                    if isinstance(k, str) and isinstance(v, str)
+                }
 
     def get_locale_string(self, lang, key, **kwargs):
         # ⚡ Bolt: Fast-path check if `lang` is already a normalized locale key
-        # and skip `.format(**kwargs)` when no template arguments are provided.
+        # and skip substitution when no template arguments are provided.
+        if not self.locales:
+            return ""
         if lang not in self.locales:
             lang = self.LANG_MAP.get(lang, "pt-BR")
             if lang not in self.locales:
                 lang = "pt-BR"
 
-        template = self.locales[lang].get(key, "")
+        template = self.locales.get(lang, {}).get(key, "")
         if not kwargs:
             return template
-        try:
-            return template.format(**kwargs)
-        except KeyError:
-            return template
+        result = template
+        for k, v in kwargs.items():
+            result = result.replace(f"{{{k}}}", str(v))
+        return result
 
     def generate_texts(self, lang, verse, reference):
         description = self.get_locale_string(lang, "default_description")
@@ -79,6 +120,9 @@ class Generator:
         return alt_text, caption
 
     def generate_audio(self, lang, verse, reference, gender="Female", custom_output_path=None):
+        verse = (verse or "")[:5000]
+        reference = (reference or "")[:100]
+
         voices = {
             "pt-BR": {"Male": "pt-BR-AntonioNeural", "Female": "pt-BR-FranciscaNeural"},
             "en": {"Male": "en-US-GuyNeural", "Female": "en-US-JennyNeural"},
@@ -117,18 +161,45 @@ class Generator:
             filename = f"{safe_ref}_{lang_code}.mp3"
             output_path = os.path.join(self.output_dir, filename)
 
+        target_dir = os.path.dirname(os.path.abspath(output_path))
+        os.makedirs(target_dir, exist_ok=True)
+
+        async def _stream_to_temp(communicate, temp_path):
+            total_bytes = 0
+            with open(temp_path, "wb") as audio_file:
+                async for message in communicate.stream():
+                    if message.get("type") == "audio":
+                        chunk = message.get("data", b"")
+                        total_bytes += len(chunk)
+                        if total_bytes > MAX_AUDIO_BYTES:
+                            raise ValueError("TTS audio stream exceeds maximum allowed size")
+                        audio_file.write(chunk)
+
         async def _generate():
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=target_dir,
+                prefix=".tmp_tts_",
+                suffix=".mp3",
+            )
+            os.close(temp_fd)
             try:
-                # 🛡️ Sentinel: Sanitize text to prevent SSML injection
-                safe_text_to_read = text_to_read.translate(self.SSML_MAP)
+                # 🛡️ Sentinel: Strip angle brackets to prevent SSML injection while avoiding double XML-escaping in edge-tts
+                safe_text_to_read = re.sub(r"[<>]", "", text_to_read)
 
                 # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
                 communicate = edge_tts.Communicate(safe_text_to_read, voice, rate="-15%")
-                # 🛡️ Sentinel: Enforce strict timeout on external TTS service to prevent DoS/thread hanging. Timeout scaled to allow for longer generations safely.
-                await asyncio.wait_for(communicate.save(output_path), timeout=60)
+                # 🛡️ Sentinel: Enforce strict timeout and byte cap on external TTS service to prevent DoS/thread hanging
+                await asyncio.wait_for(_stream_to_temp(communicate, temp_path), timeout=60)
+                os.replace(temp_path, output_path)
             except asyncio.TimeoutError as e:
-                print("Error: TTS generation timed out.")
+                logger.error("TTS generation timed out.")
                 raise Exception("TTS generation timed out.") from e
+            finally:
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
 
         asyncio.run(_generate())
         return output_path
@@ -157,21 +228,22 @@ class Generator:
                 target_width = max(1, int(round(target_width * render_scale)))
                 target_height = max(1, int(round(target_height * render_scale)))
 
-        # 🛡️ Sentinel: Enforce 20MB file size limit on custom images to prevent memory exhaustion DoS
-        if (
-            custom_image_path
-            and os.path.exists(custom_image_path)
-            and os.path.getsize(custom_image_path) <= 20 * 1024 * 1024
-        ):
+        # 🛡️ Sentinel: Enforce regular-file and 20MB file size limit on both custom and built-in images
+        if custom_image_path and self._is_safe_regular_file(custom_image_path):
             bg_path = custom_image_path
         else:
             # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
-            safe_background_filename = os.path.basename(background_filename)
+            safe_background_filename = os.path.basename(background_filename or "default.png")
             bg_path = os.path.join(self.backgrounds_dir, safe_background_filename)
-            if not os.path.exists(bg_path):
+            if not self._is_safe_regular_file(bg_path):
                 bg_path = os.path.join(self.backgrounds_dir, "default.png")
 
-        bg_cache_key = (bg_path, target_width, target_height)
+        try:
+            bg_mtime = int(os.path.getmtime(bg_path))
+        except OSError:
+            bg_mtime = 0
+
+        bg_cache_key = (bg_path, bg_mtime, target_width, target_height)
         with self._cache_lock:
             cached_bg = self._bg_cache.get(bg_cache_key)
             if cached_bg is not None:
@@ -180,7 +252,10 @@ class Generator:
             else:
                 img = None
         if img is None:
+            bg_loaded = False
             try:
+                if not self._is_safe_regular_file(bg_path):
+                    raise ValueError("Invalid or oversized background image")
                 # ⚡ Bolt: Crop and resize before mode conversion/compositing to avoid processing discarded pixels
                 with Image.open(bg_path, formats=["PNG", "JPEG"]) as raw_img:
                     if raw_img.width * raw_img.height > MAX_IMAGE_PIXELS:
@@ -195,11 +270,11 @@ class Generator:
                     target_ratio = target_width / target_height
 
                     if img_ratio > target_ratio:
-                        new_w = int(img_h * target_ratio)
+                        new_w = max(1, int(img_h * target_ratio))
                         left = int((img_w - new_w) / 2)
                         img = raw_img.crop((left, 0, left + new_w, img_h))
                     elif img_ratio < target_ratio:
-                        new_h = int(img_w / target_ratio)
+                        new_h = max(1, int(img_w / target_ratio))
                         top = int((img_h - new_h) / 2)
                         img = raw_img.crop((0, top, img_w, top + new_h))
                     else:
@@ -220,15 +295,17 @@ class Generator:
                     elif img.mode != 'RGB':
                         img = img.convert('RGB')
                     img = img.point(self.DARKEN_LUT)
+                    bg_loaded = True
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
 
-            # 🛡️ Sentinel: Bound the background cache size with LRU eviction to prevent memory exhaustion (DoS)
-            with self._cache_lock:
-                self._bg_cache[bg_cache_key] = img.copy()
-                self._bg_cache.move_to_end(bg_cache_key)
-                if len(self._bg_cache) > 16:
-                    self._bg_cache.popitem(last=False)
+            # 🛡️ Sentinel: Bound the background cache size with LRU eviction and never cache transient fallback errors
+            if bg_loaded:
+                with self._cache_lock:
+                    self._bg_cache[bg_cache_key] = img.copy()
+                    self._bg_cache.move_to_end(bg_cache_key)
+                    if len(self._bg_cache) > 16:
+                        self._bg_cache.popitem(last=False)
 
         draw = ImageDraw.Draw(img)
 
@@ -253,7 +330,18 @@ class Generator:
         # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
         safe_font_type = os.path.basename(font_type)
         font_path = os.path.join(self.fonts_dir, safe_font_type)
-        safe_font_size = max(8, min(300, int(round(int(font_size) * render_scale))))
+        try:
+            parsed_font_size = int(font_size)
+        except (ValueError, TypeError):
+            parsed_font_size = 60
+        parsed_font_size = max(8, min(300, parsed_font_size))
+        safe_font_size = max(8, min(300, int(round(parsed_font_size * render_scale))))
+
+        try:
+            parsed_y_offset = int(y_offset)
+        except (ValueError, TypeError):
+            parsed_y_offset = 0
+        parsed_y_offset = max(-1000, min(1000, parsed_y_offset))
 
         font_cache_key = (font_path, safe_font_size)
         with self._cache_lock:
@@ -297,7 +385,7 @@ class Generator:
 
         x_text = (target_width - verse_width) / 2
         # Apply y_offset
-        y_text = (target_height - verse_height) / 2 - int(round(50 * render_scale)) + int(round(int(y_offset) * render_scale))
+        y_text = (target_height - verse_height) / 2 - int(round(50 * render_scale)) + int(round(parsed_y_offset * render_scale))
 
         # Draw verse
         draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=rgba_color, align="center")

@@ -1,3 +1,10 @@
 __pycache__/
 *.pyc
 output/
+.env*
+.venv/
+venv/
+dist/
+build/
+*.key
+*.pem

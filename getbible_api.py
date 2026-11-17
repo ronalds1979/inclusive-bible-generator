@@ -1,5 +1,7 @@
 import json
 import logging
+import threading
+import time
 import requests
 import re
 import functools
@@ -12,6 +14,8 @@ logger = logging.getLogger(__name__)
 class GetBibleAPI:
     BASE_URL = "https://api.getbible.net/v2"
     MAX_RESPONSE_BYTES = 2 * 1024 * 1024  # 2 MB
+    MAX_STREAM_SECONDS = 15.0
+    _session_lock = threading.Lock()
     _session = requests.Session()
     _session.trust_env = False
 
@@ -90,24 +94,41 @@ class GetBibleAPI:
         # ⚡ Bolt: Use a persistent requests.Session() to enable connection pooling.
         # This eliminates redundant TCP/TLS handshake overhead on repeated API calls,
         # significantly reducing latency.
-        # 🛡️ Sentinel: Added timeout=10 and bounded streaming to prevent DoS/memory exhaustion
-        with GetBibleAPI._session.get(url, timeout=10, stream=True) as response:
-            response.raise_for_status()
-            content_length = response.headers.get("Content-Length")
-            if content_length is not None and content_length.isdigit():
-                if int(content_length) > GetBibleAPI.MAX_RESPONSE_BYTES:
-                    raise ValueError("Response size exceeds maximum allowed limit")
-
-            chunks = []
-            total_bytes = 0
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    total_bytes += len(chunk)
-                    if total_bytes > GetBibleAPI.MAX_RESPONSE_BYTES:
+        # 🛡️ Sentinel: Added timeout=10, allow_redirects=False, total stream deadline, lock, and schema validation
+        start_time = time.monotonic()
+        with GetBibleAPI._session_lock:
+            with GetBibleAPI._session.get(
+                url, timeout=10, stream=True, allow_redirects=False
+            ) as response:
+                response.raise_for_status()
+                content_length = response.headers.get("Content-Length")
+                if content_length is not None and content_length.isdigit():
+                    if int(content_length) > GetBibleAPI.MAX_RESPONSE_BYTES:
                         raise ValueError("Response size exceeds maximum allowed limit")
-                    chunks.append(chunk)
 
-            return json.loads(b"".join(chunks).decode("utf-8"))
+                chunks = []
+                total_bytes = 0
+                for chunk in response.iter_content(chunk_size=8192):
+                    if time.monotonic() - start_time > GetBibleAPI.MAX_STREAM_SECONDS:
+                        raise TimeoutError("Response stream exceeded maximum allowed duration")
+                    if chunk:
+                        total_bytes += len(chunk)
+                        if total_bytes > GetBibleAPI.MAX_RESPONSE_BYTES:
+                            raise ValueError("Response size exceeds maximum allowed limit")
+                        chunks.append(chunk)
+
+                data = json.loads(b"".join(chunks).decode("utf-8"))
+
+        if not isinstance(data, dict):
+            return ()
+        raw_verses = data.get("verses", [])
+        if not isinstance(raw_verses, list):
+            return ()
+        return tuple(
+            v.get("text", "")
+            for v in raw_verses
+            if isinstance(v, dict) and isinstance(v.get("text"), str)
+        )
 
     @staticmethod
     def get_passage(bible_id, reference, lang="en"):
@@ -117,8 +138,7 @@ class GetBibleAPI:
             return None
 
         try:
-            data = GetBibleAPI._fetch_chapter(bible_id, book_nr, chapter)
-            verses = data.get("verses", [])
+            verses = GetBibleAPI._fetch_chapter(bible_id, book_nr, chapter)
 
             if start_verse:
                 start_idx = int(start_verse) - 1
@@ -129,10 +149,10 @@ class GetBibleAPI:
 
                 if 0 <= start_idx < len(verses):
                     selected_verses = verses[start_idx:end_idx]
-                    return " ".join([v.get("text", "") for v in selected_verses]).strip()
+                    return " ".join(selected_verses).strip()[:5000]
                 return None
             else:
-                return " ".join([v.get("text", "") for v in verses]).strip()
+                return " ".join(verses).strip()[:5000]
 
         except Exception:
             logger.error("Failed to fetch Bible passage")

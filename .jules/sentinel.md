@@ -45,3 +45,12 @@
 **Vulnerability:** The application stored image and font objects indefinitely in memory cache dictionaries (`_bg_cache`, `_font_cache`) without any size limits or eviction policy.
 **Learning:** In long-running applications (such as desktop applications), continuously adding heavy objects like PIL Images to an unbounded cache dictionary eventually leads to Memory Exhaustion and crash (Denial of Service).
 **Prevention:** Always set a bounds check (e.g. `if len(cache) > MAX_SIZE: cache.clear()`) before inserting new items into in-memory dictionaries that cache heavy objects.
+
+
+## 2026-11-17 - Comprehensive Security Hardening (Sentinel Audit Remediation)
+**Vulnerabilities Remediated:**
+- Anchored `locales`, `assets/fonts`, `assets/backgrounds`, and `output` to `BASE_DIR` in `generator.py`, added locale filename allowlisting (`ALLOWED_LOCALE_FILES`) + schema validation, and replaced `str.format(**kwargs)` with safe literal token replacement to eliminate untrusted search path & format-string traversal attacks.
+- Synchronized `GetBibleAPI._session` with a `threading.Lock()`, disabled automatic redirects (`allow_redirects=False`), enforced a 15-second total stream deadline, validated JSON schema, and returned immutable verse tuples from `_fetch_chapter`.
+- Added in-flight guards (`_fetching_verse`, `_is_generating`) in `main.py` to prevent `<Return>` thread flooding and `trigger_preview()` re-enabling `generate_btn` mid-generation.
+- Added atomic temporary file writes with a 15 MB audio byte cap in `generate_audio()`, removed double XML escaping (`edge-tts` handles XML escaping internally; `<` and `>` are stripped directly), fixed `AUDIO_REF_PATTERN` overlapping quantifiers, enforced `_is_safe_regular_file` checks on custom and built-in images, clamped crop/font/offset bounds, and excluded `*.*` from save dialogs.
+- Removed unused `api_key_label` from locale files, pinned `requests==2.34.2`, and expanded `.gitignore`.
