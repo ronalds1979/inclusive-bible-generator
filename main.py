@@ -2,16 +2,18 @@ import datetime
 import os
 import random
 import re
+import stat
 import subprocess
 import sys
 import threading
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from tkinter import filedialog, colorchooser
 from PIL import Image
 
 import customtkinter as ctk
 from book_mapping import BOOK_MAPPING
-from generator import Generator
+from generator import Generator, MAX_IMAGE_PIXELS
 from getbible_api import GetBibleAPI
 import pyperclip
 
@@ -927,21 +929,34 @@ class App(ctk.CTk):
         bg_path = self.custom_image_path or os.path.join(self.generator.backgrounds_dir, self.bg_var.get())
         cache = getattr(self, "_bg_luminance_cache", None)
         if cache is None:
-            cache = {}
+            cache = OrderedDict()
             self._bg_luminance_cache = cache
         if bg_path in cache:
+            cache.move_to_end(bg_path)
             return cache[bg_path]
         lum = 0.35
         try:
-            if os.path.isfile(bg_path) and self.generator._is_safe_regular_file(bg_path):
-                with Image.open(bg_path) as img:
-                    thumb = img.convert("RGB").resize((16, 16))
-                    pixels = list(thumb.getdata())
-                    if pixels:
-                        lum = sum((0.299 * r + 0.587 * g + 0.114 * b) / 255 for r, g, b in pixels) / len(pixels)
+            if (
+                os.path.isfile(bg_path)
+                and self.generator._is_safe_regular_file(bg_path)
+                and self.generator._is_valid_raster_image(bg_path)
+            ):
+                fd = os.open(bg_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                with os.fdopen(fd, "rb") as f:
+                    if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                        raise ValueError("Background path is not a regular file")
+                    with Image.open(f, formats=["PNG", "JPEG"]) as img:
+                        if img.width * img.height > MAX_IMAGE_PIXELS:
+                            raise ValueError("Image dimensions exceed maximum allowed pixels")
+                        thumb = img.convert("RGB").resize((16, 16))
+                        pixels = list(thumb.getdata())
+                        if pixels:
+                            lum = sum((0.299 * r + 0.587 * g + 0.114 * b) / 255 for r, g, b in pixels) / len(pixels)
         except Exception:
             pass
         cache[bg_path] = lum
+        if len(cache) > 32:
+            cache.popitem(last=False)
         return lum
 
     def _is_low_contrast(self):

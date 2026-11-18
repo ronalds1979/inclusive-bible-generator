@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import logging
+import stat
 import tempfile
 import threading
 from collections import OrderedDict
@@ -423,46 +424,50 @@ class Generator:
                 if not self._is_safe_regular_file(bg_path):
                     raise ValueError("Invalid or oversized background image")
                 # ⚡ Bolt: Crop and resize before mode conversion/compositing to avoid processing discarded pixels
-                with Image.open(bg_path, formats=["PNG", "JPEG"]) as raw_img:
-                    if raw_img.width * raw_img.height > MAX_IMAGE_PIXELS:
-                        raise ValueError("Image dimensions exceed maximum allowed pixels")
+                fd = os.open(bg_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                with os.fdopen(fd, "rb") as f:
+                    if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                        raise ValueError("Background path is not a regular file")
+                    with Image.open(f, formats=["PNG", "JPEG"]) as raw_img:
+                        if raw_img.width * raw_img.height > MAX_IMAGE_PIXELS:
+                            raise ValueError("Image dimensions exceed maximum allowed pixels")
 
-                    # ⚡ Bolt: Use libjpeg DCT downscaling during decompression for large JPEGs
-                    if raw_img.format == "JPEG":
-                        raw_img.draft("RGB", (target_width, target_height))
+                        # ⚡ Bolt: Use libjpeg DCT downscaling during decompression for large JPEGs
+                        if raw_img.format == "JPEG":
+                            raw_img.draft("RGB", (target_width, target_height))
 
-                    img_w, img_h = raw_img.size
-                    img_ratio = img_w / img_h
-                    target_ratio = target_width / target_height
+                        img_w, img_h = raw_img.size
+                        img_ratio = img_w / img_h
+                        target_ratio = target_width / target_height
 
-                    if img_ratio > target_ratio:
-                        new_w = max(1, int(img_h * target_ratio))
-                        left = int((img_w - new_w) / 2)
-                        img = raw_img.crop((left, 0, left + new_w, img_h))
-                    elif img_ratio < target_ratio:
-                        new_h = max(1, int(img_w / target_ratio))
-                        top = int((img_h - new_h) / 2)
-                        img = raw_img.crop((0, top, img_w, top + new_h))
-                    else:
-                        img = raw_img
+                        if img_ratio > target_ratio:
+                            new_w = max(1, int(img_h * target_ratio))
+                            left = int((img_w - new_w) / 2)
+                            img = raw_img.crop((left, 0, left + new_w, img_h))
+                        elif img_ratio < target_ratio:
+                            new_h = max(1, int(img_w / target_ratio))
+                            top = int((img_h - new_h) / 2)
+                            img = raw_img.crop((0, top, img_w, top + new_h))
+                        else:
+                            img = raw_img
 
-                    # ⚡ Bolt: Use BILINEAR resampling for fast live previews (max_dimension set)
-                    resample_filter = (
-                        Image.Resampling.BILINEAR
-                        if max_dimension is not None and max_dimension > 0
-                        else Image.Resampling.BICUBIC
-                    )
-                    img = img.resize((target_width, target_height), resample=resample_filter)
-                    if img.mode in ('RGBA', 'LA', 'PA'):
-                        base = Image.new('RGB', img.size, (36, 54, 68))
-                        rgba = img.convert('RGBA')
-                        base.paste(rgba, mask=rgba.getchannel('A'))
-                        img = base
-                    elif img.mode != 'RGB':
-                        img = img.convert('RGB')
-                    if dim_key > 0.0:
-                        img = img.point(self._get_darken_lut(dim_key))
-                    bg_loaded = True
+                        # ⚡ Bolt: Use BILINEAR resampling for fast live previews (max_dimension set)
+                        resample_filter = (
+                            Image.Resampling.BILINEAR
+                            if max_dimension is not None and max_dimension > 0
+                            else Image.Resampling.BICUBIC
+                        )
+                        img = img.resize((target_width, target_height), resample=resample_filter)
+                        if img.mode in ('RGBA', 'LA', 'PA'):
+                            base = Image.new('RGB', img.size, (36, 54, 68))
+                            rgba = img.convert('RGBA')
+                            base.paste(rgba, mask=rgba.getchannel('A'))
+                            img = base
+                        elif img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        if dim_key > 0.0:
+                            img = img.point(self._get_darken_lut(dim_key))
+                        bg_loaded = True
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
 
