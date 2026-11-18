@@ -52,15 +52,16 @@ class App(ctk.CTk):
         self.grid_columnconfigure(0, weight=1) # Left side controls
         self.grid_columnconfigure(1, weight=1) # Right side preview
         self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0) # Fixed bottom status bar
 
         # Main Containers
         self.left_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.left_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        self.left_frame.grid(row=0, column=0, padx=20, pady=(20, 8), sticky="nsew")
         self.left_frame.grid_columnconfigure(0, weight=1)
         self.left_frame.grid_columnconfigure(1, weight=1)
 
         self.right_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.right_frame.grid(row=0, column=1, padx=(0, 20), pady=20, sticky="nsew")
+        self.right_frame.grid(row=0, column=1, padx=(0, 20), pady=(20, 8), sticky="nsew")
         self.right_frame.grid_columnconfigure(0, weight=1)
         self.right_frame.grid_rowconfigure(0, weight=1)
 
@@ -126,11 +127,13 @@ class App(ctk.CTk):
         self.chapter_entry = ctk.CTkEntry(self.quick_ref_frame, textvariable=self.chapter_var, width=54)
         self.chapter_entry.grid(row=1, column=1, padx=4)
         self.chapter_entry.bind("<Return>", lambda _e: self.apply_quick_reference(fetch=True))
+        self.chapter_entry.bind("<FocusOut>", lambda _e: self.apply_quick_reference(fetch=False))
 
         self.verse_num_var = ctk.StringVar(value="105")
         self.verse_num_entry = ctk.CTkEntry(self.quick_ref_frame, textvariable=self.verse_num_var, width=54)
         self.verse_num_entry.grid(row=1, column=2, padx=4)
         self.verse_num_entry.bind("<Return>", lambda _e: self.apply_quick_reference(fetch=True))
+        self.verse_num_entry.bind("<FocusOut>", lambda _e: self.apply_quick_reference(fetch=False))
 
         self.votd_btn = ctk.CTkButton(
             self.quick_ref_frame,
@@ -178,6 +181,9 @@ class App(ctk.CTk):
 
         self.verse_input = ctk.CTkTextbox(self.left_frame, height=80)
         self.verse_input.grid(row=6, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+        self.verse_input.bind("<Tab>", self._focus_next_widget)
+        self.verse_input.bind("<Shift-Tab>", self._focus_prev_widget)
+        self.verse_input.bind("<ISO_Left_Tab>", self._focus_prev_widget)
 
         # Background Selector
         self.background_label = ctk.CTkLabel(self.left_frame, text="Imagem de Fundo:")
@@ -431,6 +437,12 @@ class App(ctk.CTk):
         self.bind("<Control-D>", lambda _e: self.load_verse_of_the_day())
         self.bind("<Control-Shift-C>", lambda _e: self.copy_alt())
         self.bind("<Control-Shift-c>", lambda _e: self.copy_alt())
+        self.bind("<Control-Shift-L>", lambda _e: self.copy_caption())
+        self.bind("<Control-Shift-l>", lambda _e: self.copy_caption())
+        self.bind("<Control-o>", lambda _e: self.open_output_folder())
+        self.bind("<Control-O>", lambda _e: self.open_output_folder())
+        self.bind("<Control-Shift-X>", lambda _e: self.clear_verse_inputs())
+        self.bind("<Control-Shift-x>", lambda _e: self.clear_verse_inputs())
 
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150, state="disabled")
@@ -439,34 +451,59 @@ class App(ctk.CTk):
         # Generate Button
         self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
         self.generate_btn.grid(row=13, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+        self.generate_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("generate_btn", "Ctrl+G"))
+        self.generate_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
         # Copy/Save Buttons Frame
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.buttons_frame.grid(row=14, column=0, columnspan=2, pady=10)
+        self.buttons_frame.grid(row=14, column=0, columnspan=2, pady=10, sticky="ew")
+        self.buttons_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt, state="disabled")
-        self.copy_alt_btn.grid(row=0, column=0, padx=6)
+        self.copy_alt_btn.grid(row=0, column=0, padx=(0, 4), sticky="ew")
+        self.copy_alt_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("copy_alt_text_btn", "Ctrl+Shift+C"))
+        self.copy_alt_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
         self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption, state="disabled")
-        self.copy_caption_btn.grid(row=0, column=1, padx=6)
+        self.copy_caption_btn.grid(row=0, column=1, padx=4, sticky="ew")
+        self.copy_caption_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("copy_caption_btn", "Ctrl+Shift+L"))
+        self.copy_caption_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
         self.open_output_btn = ctk.CTkButton(self.buttons_frame, text="📂 Abrir Pasta", command=self.open_output_folder, state="disabled")
-        self.open_output_btn.grid(row=0, column=2, padx=6)
+        self.open_output_btn.grid(row=0, column=2, padx=(4, 0), sticky="ew")
+        self.open_output_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("open_output_btn", "Ctrl+O"))
+        self.open_output_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
 
-        self.status_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", wraplength=460)
-        self.status_label.grid(row=15, column=0, columnspan=2, pady=10)
+        self.fetch_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("fetch_verse_btn", "Ctrl+F"))
+        self.fetch_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self.votd_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("votd_btn", "Ctrl+D"))
+        self.votd_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+
+        # Fixed bottom status bar (always visible regardless of scroll position)
+        self.status_bar = ctk.CTkFrame(self, corner_radius=6, fg_color=("gray92", "gray17"))
+        self.status_bar.grid(row=1, column=0, columnspan=2, padx=20, pady=(0, 12), sticky="ew")
+        self.status_bar.grid_columnconfigure(0, weight=1)
+
+        self.status_label = ctk.CTkLabel(self.status_bar, text="", text_color="gray", anchor="w", wraplength=1040)
+        self.status_label.grid(row=0, column=0, padx=12, pady=6, sticky="ew")
 
         self.alt_text = ""
         self.caption = ""
         self.last_generated_image_path = None
 
         self._last_preview_params = None
+        self._btn_reset_timers = {}
 
         # Start initial preview
         self.trigger_preview()
 
         # Image Preview
-        self.preview_label = ctk.CTkLabel(self.right_frame, text=self.generator.get_locale_string(self.get_lang_key(), "preview_empty_state"), text_color="gray")
+        self.preview_label = ctk.CTkLabel(
+            self.right_frame,
+            text=self.generator.get_locale_string(self.get_lang_key(), "preview_empty_state"),
+            text_color="gray",
+            cursor="sb_v_double_arrow",
+        )
         self.preview_label.grid(row=0, column=0, sticky="nsew")
         self.preview_label.bind("<ButtonPress-1>", self._start_preview_drag)
         self.preview_label.bind("<B1-Motion>", self._on_preview_drag)
@@ -513,7 +550,17 @@ class App(ctk.CTk):
         if fetch and not getattr(self, "api_loading", False):
             self.fetch_verse()
 
+    def _focus_next_widget(self, event):
+        event.widget.tk_focusNext().focus_set()
+        return "break"
+
+    def _focus_prev_widget(self, event):
+        event.widget.tk_focusPrev().focus_set()
+        return "break"
+
     def load_verse_of_the_day(self):
+        if getattr(self, "_fetching_verse", False) or getattr(self, "api_loading", False):
+            return
         idx = (datetime.date.today().toordinal() + self._votd_offset) % len(self.CURATED_VOTD_REFS)
         self._votd_offset += 1
         book_nr, chapter, verse = self.CURATED_VOTD_REFS[idx]
@@ -544,6 +591,7 @@ class App(ctk.CTk):
         self._last_preview_params = None
         self.trigger_preview()
         self.preview_content()
+        self.reference_input.focus_set()
 
     def reset_y_offset(self):
         self.y_offset_var.set(0)
@@ -552,8 +600,10 @@ class App(ctk.CTk):
     def toggle_audio_options(self):
         if self.audio_generate_var.get():
             self.gender_dropdown.configure(state="normal")
+            self.gender_label.configure(text_color=("gray10", "gray90"))
         else:
             self.gender_dropdown.configure(state="disabled")
+            self.gender_label.configure(text_color=("gray55", "gray50"))
 
     def get_lang_key(self):
         return self.LANG_MAP.get(self.current_lang, "pt-BR")
@@ -637,16 +687,20 @@ class App(ctk.CTk):
 
         # Keep selected color in sync with new language
         current_color = self.font_color_var.get()
-        if current_color == "#FFFFFF":
-            self.font_color_dropdown.set(color_white)
-        elif current_color == "#000000":
-            self.font_color_dropdown.set(color_black)
-        elif current_color == "#FFD700":
-            self.font_color_dropdown.set(color_gold)
-        elif current_color == "#FF0000":
-            self.font_color_dropdown.set(color_red)
+        preset_map = {
+            "#FFFFFF": color_white,
+            "#000000": color_black,
+            "#FFD700": color_gold,
+            "#FF0000": color_red,
+        }
+        if current_color in preset_map:
+            self.font_color_dropdown.set(preset_map[current_color])
+            self.font_color_entry.grid_remove()
+            self.color_picker_btn.grid_remove()
         else:
             self.font_color_dropdown.set(color_custom)
+            self.font_color_entry.grid()
+            self.color_picker_btn.grid()
         self.font_color_label.configure(text=self.generator.get_locale_string(lang, "font_color_label"))
         self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {int(self.font_size_var.get())}")
         self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {int(self.y_offset_var.get())}")
@@ -723,6 +777,8 @@ class App(ctk.CTk):
 
         if version_name == "-" or not reference:
             self.status_label.configure(text=self.generator.get_locale_string(lang, "missing_version_ref_msg"), text_color="red")
+            if not reference:
+                self.reference_input.focus_set()
             return
 
         bible_id = self.bible_versions_map.get(version_name)
@@ -733,6 +789,8 @@ class App(ctk.CTk):
         self._last_fetch_state = "disabled"
         original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
         self.fetch_btn.configure(state="disabled", text="⏳ " + original_text)
+        self.votd_btn.configure(state="disabled")
+        self.book_dropdown.configure(state="disabled")
 
         def _fetch():
             fetching_msg = self.generator.get_locale_string(lang, "fetching_verse_msg")
@@ -746,10 +804,27 @@ class App(ctk.CTk):
 
         threading.Thread(target=_fetch, daemon=True).start()
 
+    def _schedule_button_reset(self, button, locale_key):
+        timer_id = self._btn_reset_timers.pop(button, None)
+        if timer_id is not None:
+            try:
+                self.after_cancel(timer_id)
+            except Exception:
+                pass
+
+        def _reset():
+            self._btn_reset_timers.pop(button, None)
+            text = self.generator.get_locale_string(self.get_lang_key(), locale_key)
+            button.configure(text=text)
+
+        self._btn_reset_timers[button] = self.after(2000, _reset)
+
     def _update_verse_ui(self, content):
         self._fetching_verse = False
         self._last_fetch_state = "normal"
         self.fetch_btn.configure(state="normal")
+        self.votd_btn.configure(state="normal")
+        self.book_dropdown.configure(state="normal")
         lang = self.get_lang_key()
         original_text = self.generator.get_locale_string(lang, "fetch_verse_btn")
         if content:
@@ -758,15 +833,22 @@ class App(ctk.CTk):
             self.status_label.configure(text=self.generator.get_locale_string(lang, "verse_fetched_msg"), text_color="green")
 
             self.fetch_btn.configure(text="✓ " + original_text)
-            self.after(2000, lambda: self.fetch_btn.configure(text=original_text))
+            self._schedule_button_reset(self.fetch_btn, "fetch_verse_btn")
 
             self.trigger_preview()
         else:
             self.fetch_btn.configure(text=original_text)
             self.status_label.configure(text=self.generator.get_locale_string(lang, "error_fetching_verse_msg"), text_color="red")
 
+    def _show_shortcut_hint(self, locale_key, shortcut):
+        label = self.generator.get_locale_string(self.get_lang_key(), locale_key)
+        self._set_hover_hint_text(f"{label} ({shortcut})")
+
     def _show_hover_hint(self, locale_key):
         hint_text = self.generator.get_locale_string(self.get_lang_key(), locale_key)
+        self._set_hover_hint_text(hint_text)
+
+    def _set_hover_hint_text(self, hint_text):
         if not getattr(self, "_showing_hover_hint", False):
             self._saved_status = (
                 self.status_label.cget("text"),
@@ -812,25 +894,54 @@ class App(ctk.CTk):
         else:
             self.contrast_warning_frame.grid_remove()
 
+    def _get_background_luminance(self):
+        bg_path = self.custom_image_path or os.path.join(self.generator.backgrounds_dir, self.bg_var.get())
+        cache = getattr(self, "_bg_luminance_cache", None)
+        if cache is None:
+            cache = {}
+            self._bg_luminance_cache = cache
+        if bg_path in cache:
+            return cache[bg_path]
+        lum = 0.35
+        try:
+            if os.path.isfile(bg_path) and self.generator._is_safe_regular_file(bg_path):
+                with Image.open(bg_path) as img:
+                    thumb = img.convert("RGB").resize((16, 16))
+                    pixels = list(thumb.getdata())
+                    if pixels:
+                        lum = sum((0.299 * r + 0.587 * g + 0.114 * b) / 255 for r, g, b in pixels) / len(pixels)
+        except Exception:
+            pass
+        cache[bg_path] = lum
+        return lum
+
     def _is_low_contrast(self):
         color = self.font_color_var.get().strip()
         lum = self._color_luminance(color)
         if lum is None:
             return False
-        bg_dim = int(self.bg_dim_var.get())
-        is_dark_preset = self.custom_image_path is None and self.bg_var.get() in (
-            "minimal_slate.png",
-            "starry_night.png",
-        )
-        return (lum > 0.7 and bg_dim < 25 and not is_dark_preset) or (
-            lum < 0.15 and bg_dim >= 40
-        )
+        bg_dim = max(0, min(100, int(self.bg_dim_var.get())))
+        effective_bg_lum = self._get_background_luminance() * (1.0 - (bg_dim / 100.0))
+        lighter = max(lum, effective_bg_lum)
+        darker = min(lum, effective_bg_lum)
+        contrast_ratio = (lighter + 0.05) / (darker + 0.05)
+        return contrast_ratio < 4.5
 
     def auto_fix_contrast(self):
         lum = self._color_luminance(self.font_color_var.get().strip())
         if lum is None:
             return
-        self.bg_dim_var.set(45 if lum > 0.5 else 0)
+        if lum > 0.5:
+            # Darken background until contrast ratio reaches >= 4.5 (or max dim)
+            base_bg_lum = self._get_background_luminance()
+            if base_bg_lum > 0:
+                target_bg_lum = max(0.0, ((lum + 0.05) / 4.5) - 0.05)
+                needed_dim = int(min(90, max(45, round((1.0 - (target_bg_lum / base_bg_lum)) * 100))))
+            else:
+                needed_dim = 45
+            self.bg_dim_var.set(needed_dim)
+        else:
+            self.bg_dim_var.set(0)
         self.trigger_preview()
 
     def trigger_preview(self, *args):
@@ -846,16 +957,27 @@ class App(ctk.CTk):
             self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {y_offset}")
             self.bg_dim_label.configure(text=f"{self.generator.get_locale_string(lang, 'background_dim_label')}: {bg_dim}%")
 
+        reset_font_state = "normal" if font_size != 60 else "disabled"
+        if getattr(self, "_last_reset_font_state", None) != reset_font_state:
+            self._last_reset_font_state = reset_font_state
+            self.reset_font_size_btn.configure(state=reset_font_state)
+
+        reset_y_state = "normal" if y_offset != 0 else "disabled"
+        if getattr(self, "_last_reset_y_state", None) != reset_y_state:
+            self._last_reset_y_state = reset_y_state
+            self.reset_y_btn.configure(state=reset_y_state)
+
         self._update_contrast_warning()
 
         verse = self.verse_input.get("1.0", "end-1c").strip()
         reference = self.reference_input.get().strip()
 
         verse_base_label = self.generator.get_locale_string(lang, "verse_label")
-        verse_label_text = f"{verse_base_label} ({len(verse)})" if verse else verse_base_label
-        if getattr(self, "_last_verse_label_text", None) != verse_label_text:
-            self._last_verse_label_text = verse_label_text
-            self.verse_label.configure(text=verse_label_text)
+        verse_label_text = f"{verse_base_label} ({len(verse)}/5000)" if verse else verse_base_label
+        verse_label_color = "red" if len(verse) > 5000 else ("gray10", "gray90")
+        if getattr(self, "_last_verse_label_state", None) != (verse_label_text, verse_label_color):
+            self._last_verse_label_state = (verse_label_text, verse_label_color)
+            self.verse_label.configure(text=verse_label_text, text_color=verse_label_color)
 
         clear_state = "normal" if (verse or reference) else "disabled"
         if getattr(self, "_last_clear_state", None) != clear_state:
@@ -906,11 +1028,14 @@ class App(ctk.CTk):
     def _sync_color_swatch(self):
         color = self.font_color_var.get().strip()
         if self.HEX_COLOR_RE.match(color):
+            self.font_color_entry.configure(border_color=("gray60", "gray40"))
             self.color_picker_btn.configure(
                 fg_color=color,
                 hover_color=color,
                 text_color=self._contrast_text_color(color)
             )
+        else:
+            self.font_color_entry.configure(border_color="red")
 
     def _on_custom_color_typed(self, *args):
         self._sync_color_swatch()
@@ -1215,13 +1340,14 @@ class App(ctk.CTk):
 
         original_text = self.generator.get_locale_string(lang, "generate_btn")
         self.generate_btn.configure(text="✓ " + original_text)
-        self.after(2000, lambda: self.generate_btn.configure(text=original_text))
+        self._schedule_button_reset(self.generate_btn, "generate_btn")
 
     def open_output_folder(self):
         if not self.last_generated_image_path:
             return
         folder = os.path.dirname(os.path.abspath(self.last_generated_image_path))
         if not os.path.isdir(folder) or self.generator._has_reparse_in_lineage(folder):
+            self.status_label.configure(text=f"Folder unavailable: {folder}", text_color="red")
             return
         try:
             if hasattr(os, "startfile"):
@@ -1230,26 +1356,34 @@ class App(ctk.CTk):
                 subprocess.Popen(["open", folder])
             else:
                 subprocess.Popen(["xdg-open", folder])
-        except OSError:
-            pass
+        except OSError as e:
+            self.status_label.configure(text=f"Could not open folder: {e}", text_color="red")
 
     def copy_alt(self):
         if self.alt_text:
-            pyperclip.copy(self.alt_text)
+            try:
+                pyperclip.copy(self.alt_text)
+            except Exception as e:
+                self.status_label.configure(text=f"Clipboard error: {e}", text_color="red")
+                return
             lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"), text_color="green")
             original_text = self.generator.get_locale_string(lang, "copy_alt_text_btn")
             self.copy_alt_btn.configure(text="✓ " + original_text)
-            self.after(2000, lambda: self.copy_alt_btn.configure(text=original_text))
+            self._schedule_button_reset(self.copy_alt_btn, "copy_alt_text_btn")
 
     def copy_caption(self):
         if self.caption:
-            pyperclip.copy(self.caption)
+            try:
+                pyperclip.copy(self.caption)
+            except Exception as e:
+                self.status_label.configure(text=f"Clipboard error: {e}", text_color="red")
+                return
             lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"), text_color="green")
             original_text = self.generator.get_locale_string(lang, "copy_caption_btn")
             self.copy_caption_btn.configure(text="✓ " + original_text)
-            self.after(2000, lambda: self.copy_caption_btn.configure(text=original_text))
+            self._schedule_button_reset(self.copy_caption_btn, "copy_caption_btn")
 
 if __name__ == "__main__":
     app = App()

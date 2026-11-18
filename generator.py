@@ -140,6 +140,9 @@ class Generator:
         self._bg_cache = OrderedDict()
         self._font_cache = OrderedDict()
         self._wrap_cache = OrderedDict()
+        self._valid_image_cache = OrderedDict()
+        self._text_metrics_cache = OrderedDict()
+        self._word_width_cache = OrderedDict()
 
     def load_locales(self):
         locales_dir = os.path.join(self.base_dir, "locales")
@@ -270,6 +273,85 @@ class Generator:
         asyncio.run(_generate())
         return output_path
 
+    @staticmethod
+    def _get_font_id(font):
+        font_id = (getattr(font, "path", None), getattr(font, "size", 0))
+        if font_id[0] is None:
+            return id(font)
+        return font_id
+
+    def _resolve_valid_image(self, path, max_bytes=20 * 1024 * 1024):
+        """Validate raster image path with mtime/size-keyed LRU caching to avoid repeated lineage walks."""
+        if not path or not isinstance(path, str):
+            return False, 0
+        try:
+            st = os.stat(path)
+        except OSError:
+            return False, 0
+        if not (0 < st.st_size <= max_bytes):
+            return False, 0
+
+        cache_key = (path, st.st_mtime_ns, st.st_size)
+        with self._cache_lock:
+            if cache_key in self._valid_image_cache:
+                self._valid_image_cache.move_to_end(cache_key)
+                return True, int(st.st_mtime)
+
+        if not self._is_valid_raster_image(path, max_bytes=max_bytes):
+            return False, 0
+
+        with self._cache_lock:
+            self._valid_image_cache[cache_key] = True
+            self._valid_image_cache.move_to_end(cache_key)
+            if len(self._valid_image_cache) > 32:
+                self._valid_image_cache.popitem(last=False)
+        return True, int(st.st_mtime)
+
+    def _measure_multiline_text(self, draw, text, font):
+        """Return (width, height) of wrapped multiline text, cached by (text, font_id)."""
+        cache_key = ("multi", text, self._get_font_id(font))
+        with self._cache_lock:
+            cached = self._text_metrics_cache.get(cache_key)
+            if cached is not None:
+                self._text_metrics_cache.move_to_end(cache_key)
+                return cached
+
+        try:
+            bbox = draw.multiline_textbbox((0, 0), text, font=font)
+            dims = (bbox[2] - bbox[0], bbox[3] - bbox[1])
+        except AttributeError:
+            # Fallback for older Pillow
+            dims = draw.textsize(text, font=font)
+
+        with self._cache_lock:
+            self._text_metrics_cache[cache_key] = dims
+            self._text_metrics_cache.move_to_end(cache_key)
+            if len(self._text_metrics_cache) > 256:
+                self._text_metrics_cache.popitem(last=False)
+        return dims
+
+    def _measure_single_text_width(self, draw, text, font):
+        """Return width of a single-line string, cached by (text, font_id)."""
+        cache_key = ("single", text, self._get_font_id(font))
+        with self._cache_lock:
+            cached = self._text_metrics_cache.get(cache_key)
+            if cached is not None:
+                self._text_metrics_cache.move_to_end(cache_key)
+                return cached
+
+        try:
+            bbox = draw.textbbox((0, 0), text, font=font)
+            width = bbox[2] - bbox[0]
+        except AttributeError:
+            width, _ = draw.textsize(text, font=font)
+
+        with self._cache_lock:
+            self._text_metrics_cache[cache_key] = width
+            self._text_metrics_cache.move_to_end(cache_key)
+            if len(self._text_metrics_cache) > 256:
+                self._text_metrics_cache.popitem(last=False)
+        return width
+
     def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0, max_dimension=None, background_dim=0.5):
         verse = (verse or "")[:5000]
         reference = (reference or "")[:100]
@@ -303,19 +385,29 @@ class Generator:
                 target_height = max(1, int(round(target_height * render_scale)))
 
         # 🛡️ Sentinel: Enforce regular-file and 20MB file size limit on both custom and built-in images
-        if custom_image_path and self._is_valid_raster_image(custom_image_path):
-            bg_path = custom_image_path
-        else:
+        # ⚡ Bolt: Use mtime/size-keyed validation cache to avoid repeated lineage walks and header reads
+        bg_path = None
+        bg_mtime = 0
+        if custom_image_path:
+            is_valid, mtime = self._resolve_valid_image(custom_image_path)
+            if is_valid:
+                bg_path = custom_image_path
+                bg_mtime = mtime
+
+        if bg_path is None:
             # 🛡️ Sentinel: Prevent path traversal by extracting only the basename
             safe_background_filename = os.path.basename(background_filename or "default.png")
-            bg_path = os.path.join(self.backgrounds_dir, safe_background_filename)
-            if not self._is_valid_raster_image(bg_path):
+            candidate_path = os.path.join(self.backgrounds_dir, safe_background_filename)
+            is_valid, mtime = self._resolve_valid_image(candidate_path)
+            if is_valid:
+                bg_path = candidate_path
+                bg_mtime = mtime
+            else:
                 bg_path = os.path.join(self.backgrounds_dir, "default.png")
-
-        try:
-            bg_mtime = int(os.path.getmtime(bg_path))
-        except OSError:
-            bg_mtime = 0
+                try:
+                    bg_mtime = int(os.path.getmtime(bg_path))
+                except OSError:
+                    bg_mtime = 0
 
         bg_cache_key = (bg_path, bg_mtime, target_width, target_height, dim_key)
         with self._cache_lock:
@@ -454,13 +546,7 @@ class Generator:
         wrapped_verse = self.wrap_text(verse, font_large, max_width, draw)
 
         # Calculate text position to center it
-        try:
-            bbox = draw.multiline_textbbox((0, 0), wrapped_verse, font=font_large)
-            verse_width = bbox[2] - bbox[0]
-            verse_height = bbox[3] - bbox[1]
-        except AttributeError:
-             # Fallback for older Pillow
-             verse_width, verse_height = draw.textsize(wrapped_verse, font=font_large)
+        verse_width, verse_height = self._measure_multiline_text(draw, wrapped_verse, font_large)
 
         x_text = (target_width - verse_width) / 2
         # Apply y_offset
@@ -470,11 +556,7 @@ class Generator:
         draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=rgba_color, align="center")
 
         # Draw reference
-        try:
-            bbox_ref = draw.textbbox((0, 0), reference, font=font_small)
-            ref_width = bbox_ref[2] - bbox_ref[0]
-        except AttributeError:
-             ref_width, ref_height = draw.textsize(reference, font=font_small)
+        ref_width = self._measure_single_text_width(draw, reference, font_small)
 
         x_ref = (target_width - ref_width) / 2
         y_ref = y_text + verse_height + int(safe_font_size * 0.66)
@@ -509,18 +591,29 @@ class Generator:
     def wrap_text(self, text, font, max_width, draw):
         text = (text or "")[:5000]
         # ⚡ Bolt: Key by stable (font.path, font.size) with LRU eviction instead of volatile id(font)
-        font_id = (getattr(font, "path", None), getattr(font, "size", 0))
-        if font_id[0] is None:
-            font_id = id(font)
+        font_id = self._get_font_id(font)
         cache_key = (text, font_id, max_width)
         with self._cache_lock:
             if cache_key in self._wrap_cache:
                 self._wrap_cache.move_to_end(cache_key)
                 return self._wrap_cache[cache_key]
+            word_widths = self._word_width_cache.get(font_id)
+            if word_widths is not None:
+                self._word_width_cache.move_to_end(font_id)
+
+        if word_widths is None:
+            word_widths = {}
+            with self._cache_lock:
+                if font_id in self._word_width_cache:
+                    word_widths = self._word_width_cache[font_id]
+                else:
+                    self._word_width_cache[font_id] = word_widths
+                    if len(self._word_width_cache) > 32:
+                        self._word_width_cache.popitem(last=False)
 
         # ⚡ Bolt: Measure words individually and accumulate widths
         # to avoid O(n²) string concatenation and re-measuring during wrap.
-        # Also memoize individual word widths in a dictionary and prefer
+        # Also memoize individual word widths per font across calls and prefer
         # font.getlength over draw.textlength to avoid ImageDraw lookup overhead.
         lines = []
         words = text.split(' ')
@@ -528,17 +621,21 @@ class Generator:
         current_width = 0
 
         try:
-            space_width = font.getlength(" ")
             measure = font.getlength
         except AttributeError:
-            space_width = font.getsize(" ")[0]
             measure = lambda t: font.getsize(t)[0]
 
-        word_widths = {}
+        space_width = word_widths.get(" ")
+        if space_width is None:
+            space_width = measure(" ")
+            word_widths[" "] = space_width
+
         for word in words:
-            if word not in word_widths:
-                word_widths[word] = measure(word)
-            w = word_widths[word]
+            w = word_widths.get(word)
+            if w is None:
+                w = measure(word)
+                if len(word_widths) < 2048:
+                    word_widths[word] = w
 
             if current_line:
                 if current_width + space_width + w > max_width:
