@@ -64,5 +64,9 @@
   "open_output_btn": "📂 Abrir Pasta",
   "drag_preview_hint": "Dica: Arraste na prévia para ajustar a posição vertical (duplo clique para centralizar).",
   "reset_font_size_tooltip": "Restaurar tamanho padrão da fonte (60)",
-  "clear_inputs_tooltip": "Limpar campos de versículo e referência"
+  "clear_inputs_tooltip": "Limpar campos de versículo e referência",
+  "clear_custom_image_tooltip": "Voltar para a imagem de fundo padrão",
+  "folder_unavailable_error": "A pasta de saída não está disponível.",
+  "open_folder_error": "Não foi possível abrir a pasta de saída.",
+  "clipboard_error": "Não foi possível copiar para a área de transferência."
 }

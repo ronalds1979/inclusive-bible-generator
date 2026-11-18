@@ -64,5 +64,9 @@
   "open_output_btn": "📂 Open Folder",
   "drag_preview_hint": "Tip: Drag up/down on the preview to adjust vertical position (double-click to center).",
   "reset_font_size_tooltip": "Reset font size to default (60)",
-  "clear_inputs_tooltip": "Clear verse and reference fields"
+  "clear_inputs_tooltip": "Clear verse and reference fields",
+  "clear_custom_image_tooltip": "Revert to built-in background image",
+  "folder_unavailable_error": "Output folder is unavailable.",
+  "open_folder_error": "Could not open output folder.",
+  "clipboard_error": "Could not copy to clipboard."
 }

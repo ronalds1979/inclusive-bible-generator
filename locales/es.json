@@ -64,5 +64,9 @@
   "open_output_btn": "📂 Abrir Carpeta",
   "drag_preview_hint": "Consejo: Arrastra en la vista previa para mover el texto (doble clic para centrar).",
   "reset_font_size_tooltip": "Restablecer tamaño de fuente predeterminado (60)",
-  "clear_inputs_tooltip": "Limpiar campos de versículo y referencia"
+  "clear_inputs_tooltip": "Limpiar campos de versículo y referencia",
+  "clear_custom_image_tooltip": "Volver a la imagen de fondo predeterminada",
+  "folder_unavailable_error": "La carpeta de salida no está disponible.",
+  "open_folder_error": "No se pudo abrir la carpeta de salida.",
+  "clipboard_error": "No se pudo copiar al portapapeles."
 }

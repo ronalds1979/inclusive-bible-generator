@@ -173,11 +173,7 @@ class App(ctk.CTk):
             command=self.clear_verse_inputs,
         )
         self.clear_inputs_btn.grid(row=0, column=1, sticky="e")
-        self.clear_inputs_btn.bind(
-            "<Enter>",
-            lambda _e: self._show_hover_hint("clear_inputs_tooltip"),
-        )
-        self.clear_inputs_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.clear_inputs_btn, "clear_inputs_tooltip")
 
         self.verse_input = ctk.CTkTextbox(self.left_frame, height=80)
         self.verse_input.grid(row=6, column=0, columnspan=2, pady=(0, 10), sticky="ew")
@@ -218,6 +214,22 @@ class App(ctk.CTk):
         self.custom_image_btn = ctk.CTkButton(self.bg_frame, text="Selecionar Imagem Personalizada", command=self.select_custom_image)
         self.custom_image_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
+        self.clear_custom_img_btn = ctk.CTkButton(
+            self.bg_frame,
+            text="✕",
+            width=28,
+            height=28,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            text_color=("gray20", "gray85"),
+            command=lambda: self.clear_custom_image(self._default_bg_file),
+        )
+        self.clear_custom_img_btn.grid(row=0, column=2, padx=(4, 0))
+        self._bind_hint(self.clear_custom_img_btn, "clear_custom_image_tooltip")
+        self.clear_custom_img_btn.grid_remove()
+        self._default_bg_file = bg_files[0]
+
         self.bg_dim_label = ctk.CTkLabel(self.bg_frame, text="Escurecer Fundo: 50%")
         self.bg_dim_label.grid(row=1, column=0, columnspan=2, pady=(8, 2), sticky="w")
 
@@ -225,12 +237,13 @@ class App(ctk.CTk):
         self.bg_dim_slider = ctk.CTkSlider(
             self.bg_frame,
             from_=0,
-            to=75,
-            number_of_steps=15,
+            to=85,
+            number_of_steps=17,
             variable=self.bg_dim_var,
             command=self._on_bg_dim_changed,
         )
-        self.bg_dim_slider.grid(row=2, column=0, columnspan=2, sticky="ew")
+        self.bg_dim_slider.grid(row=2, column=0, columnspan=3, sticky="ew")
+        self._bind_slider_keys(self.bg_dim_slider, self.bg_dim_var, 5, 0, 85, self._on_bg_dim_changed)
 
         self.contrast_warning_frame = ctk.CTkFrame(
             self.bg_frame,
@@ -312,11 +325,7 @@ class App(ctk.CTk):
             command=self.pick_custom_color
         )
         self.color_picker_btn.grid(row=0, column=2, padx=(4, 0))
-        self.color_picker_btn.bind(
-            "<Enter>",
-            lambda _e: self._show_hover_hint("color_picker_title"),
-        )
-        self.color_picker_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.color_picker_btn, "color_picker_title")
         self._sync_color_swatch()
 
         # Initially hide the custom entry box and picker, only show when Custom... is selected
@@ -342,15 +351,12 @@ class App(ctk.CTk):
             command=self.reset_font_size,
         )
         self.reset_font_size_btn.grid(row=0, column=1, sticky="e")
-        self.reset_font_size_btn.bind(
-            "<Enter>",
-            lambda _e: self._show_hover_hint("reset_font_size_tooltip"),
-        )
-        self.reset_font_size_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.reset_font_size_btn, "reset_font_size_tooltip")
 
         self.font_size_var = ctk.IntVar(value=60)
         self.font_size_slider = ctk.CTkSlider(self.font_config_frame, from_=20, to=120, variable=self.font_size_var, command=self._on_font_size_changed)
         self.font_size_slider.grid(row=1, column=2, padx=(5, 0), sticky="ew")
+        self._bind_slider_keys(self.font_size_slider, self.font_size_var, 2, 20, 120, self._on_font_size_changed)
 
         # Bottom customization block
         self.bottom_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
@@ -390,15 +396,12 @@ class App(ctk.CTk):
             command=self.reset_y_offset
         )
         self.reset_y_btn.grid(row=0, column=1, sticky="e")
-        self.reset_y_btn.bind(
-            "<Enter>",
-            lambda _e: self._show_hover_hint("reset_y_tooltip"),
-        )
-        self.reset_y_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.reset_y_btn, "reset_y_tooltip")
 
         self.y_offset_var = ctk.IntVar(value=0)
         self.y_offset_slider = ctk.CTkSlider(self.bottom_config_frame, from_=-400, to=400, variable=self.y_offset_var, command=self._on_y_offset_changed)
         self.y_offset_slider.grid(row=1, column=1, padx=5, sticky="ew")
+        self._bind_slider_keys(self.y_offset_slider, self.y_offset_var, 10, -400, 400, self._on_y_offset_changed)
 
         # Audio Configuration block
         self.audio_config_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
@@ -447,12 +450,14 @@ class App(ctk.CTk):
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150, state="disabled")
         self.output_textbox.grid(row=12, column=0, columnspan=2, pady=10, sticky="ew")
+        self.output_textbox.bind("<Tab>", self._focus_next_widget)
+        self.output_textbox.bind("<Shift-Tab>", self._focus_prev_widget)
+        self.output_textbox.bind("<ISO_Left_Tab>", self._focus_prev_widget)
 
         # Generate Button
         self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
         self.generate_btn.grid(row=13, column=0, columnspan=2, pady=(10, 0), sticky="ew")
-        self.generate_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("generate_btn", "Ctrl+G"))
-        self.generate_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.generate_btn, "generate_btn", "Ctrl+G")
 
         # Copy/Save Buttons Frame
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
@@ -461,23 +466,18 @@ class App(ctk.CTk):
 
         self.copy_alt_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Alt-Text", command=self.copy_alt, state="disabled")
         self.copy_alt_btn.grid(row=0, column=0, padx=(0, 4), sticky="ew")
-        self.copy_alt_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("copy_alt_text_btn", "Ctrl+Shift+C"))
-        self.copy_alt_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.copy_alt_btn, "copy_alt_text_btn", "Ctrl+Shift+C")
 
         self.copy_caption_btn = ctk.CTkButton(self.buttons_frame, text="Copiar Legenda", command=self.copy_caption, state="disabled")
         self.copy_caption_btn.grid(row=0, column=1, padx=4, sticky="ew")
-        self.copy_caption_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("copy_caption_btn", "Ctrl+Shift+L"))
-        self.copy_caption_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.copy_caption_btn, "copy_caption_btn", "Ctrl+Shift+L")
 
         self.open_output_btn = ctk.CTkButton(self.buttons_frame, text="📂 Abrir Pasta", command=self.open_output_folder, state="disabled")
         self.open_output_btn.grid(row=0, column=2, padx=(4, 0), sticky="ew")
-        self.open_output_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("open_output_btn", "Ctrl+O"))
-        self.open_output_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.open_output_btn, "open_output_btn", "Ctrl+O")
 
-        self.fetch_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("fetch_verse_btn", "Ctrl+F"))
-        self.fetch_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
-        self.votd_btn.bind("<Enter>", lambda _e: self._show_shortcut_hint("votd_btn", "Ctrl+D"))
-        self.votd_btn.bind("<Leave>", lambda _e: self._clear_hover_hint())
+        self._bind_hint(self.fetch_btn, "fetch_verse_btn", "Ctrl+F")
+        self._bind_hint(self.votd_btn, "votd_btn", "Ctrl+D")
 
         # Fixed bottom status bar (always visible regardless of scroll position)
         self.status_bar = ctk.CTkFrame(self, corner_radius=6, fg_color=("gray92", "gray17"))
@@ -550,6 +550,32 @@ class App(ctk.CTk):
         if fetch and not getattr(self, "api_loading", False):
             self.fetch_verse()
 
+    def _bind_hint(self, widget, hint_key, shortcut=None):
+        """Show status-bar hint on both pointer hover and keyboard focus."""
+        show = (
+            (lambda _e: self._show_shortcut_hint(hint_key, shortcut))
+            if shortcut
+            else (lambda _e: self._show_hover_hint(hint_key))
+        )
+        clear = lambda _e: self._clear_hover_hint()
+        widget.bind("<Enter>", show)
+        widget.bind("<Leave>", clear)
+        widget.bind("<FocusIn>", show)
+        widget.bind("<FocusOut>", clear)
+
+    def _bind_slider_keys(self, slider, var, step, min_val, max_val, on_change):
+        """Allow keyboard arrow keys to adjust CTkSlider values."""
+        def adjust(delta):
+            nxt = max(min_val, min(max_val, int(var.get()) + delta))
+            var.set(nxt)
+            on_change(nxt)
+            return "break"
+
+        slider.bind("<Left>", lambda _e: adjust(-step))
+        slider.bind("<Right>", lambda _e: adjust(step))
+        slider.bind("<Shift-Left>", lambda _e: adjust(-step * 2))
+        slider.bind("<Shift-Right>", lambda _e: adjust(step * 2))
+
     def _focus_next_widget(self, event):
         event.widget.tk_focusNext().focus_set()
         return "break"
@@ -610,7 +636,10 @@ class App(ctk.CTk):
 
     def change_language(self, choice):
         self.current_lang = choice
+        had_ref = bool(self.reference_input.get().strip())
         self.update_ui_texts()
+        if had_ref:
+            self.apply_quick_reference(fetch=False)
         self.load_bible_versions()
 
     def update_ui_texts(self):
@@ -932,16 +961,31 @@ class App(ctk.CTk):
         if lum is None:
             return
         if lum > 0.5:
-            # Darken background until contrast ratio reaches >= 4.5 (or max dim)
+            # Darken background until contrast ratio reaches >= 4.5 (or max 85% dim)
             base_bg_lum = self._get_background_luminance()
             if base_bg_lum > 0:
                 target_bg_lum = max(0.0, ((lum + 0.05) / 4.5) - 0.05)
-                needed_dim = int(min(90, max(45, round((1.0 - (target_bg_lum / base_bg_lum)) * 100))))
+                needed_dim = int(min(85, max(45, round((1.0 - (target_bg_lum / base_bg_lum)) * 100))))
             else:
                 needed_dim = 45
             self.bg_dim_var.set(needed_dim)
         else:
             self.bg_dim_var.set(0)
+
+        if self._is_low_contrast():
+            # Medium/dark text (e.g., #FF0000) still fails 4.5:1 even at 0% dim; switch to white + darkened bg
+            self.font_color_var.set("#FFFFFF")
+            lang = self.get_lang_key()
+            self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_white"))
+            self.font_color_entry.grid_remove()
+            self.color_picker_btn.grid_remove()
+            base_bg_lum = self._get_background_luminance()
+            if base_bg_lum > 0:
+                target_bg_lum = max(0.0, ((1.0 + 0.05) / 4.5) - 0.05)
+                needed_dim = int(min(85, max(45, round((1.0 - (target_bg_lum / base_bg_lum)) * 100))))
+            else:
+                needed_dim = 45
+            self.bg_dim_var.set(needed_dim)
         self.trigger_preview()
 
     def trigger_preview(self, *args):
@@ -1075,8 +1119,11 @@ class App(ctk.CTk):
             self.color_picker_btn.grid_remove()
             self.trigger_preview()
 
-    def clear_custom_image(self, _choice):
+    def clear_custom_image(self, choice):
         self.custom_image_path = None
+        if choice and choice != self.bg_var.get():
+            self.bg_var.set(choice)
+        self.clear_custom_img_btn.grid_remove()
         self.trigger_preview()
 
     def select_custom_image(self):
@@ -1093,7 +1140,8 @@ class App(ctk.CTk):
                 )
                 return
             self.custom_image_path = file_path
-            self.bg_var.set(os.path.basename(file_path))
+            self.bg_var.set(f"Custom: {os.path.basename(file_path)}")
+            self.clear_custom_img_btn.grid()
             self.trigger_preview()
 
     def get_current_params(self):
@@ -1345,9 +1393,10 @@ class App(ctk.CTk):
     def open_output_folder(self):
         if not self.last_generated_image_path:
             return
+        lang = self.get_lang_key()
         folder = os.path.dirname(os.path.abspath(self.last_generated_image_path))
         if not os.path.isdir(folder) or self.generator._has_reparse_in_lineage(folder):
-            self.status_label.configure(text=f"Folder unavailable: {folder}", text_color="red")
+            self.status_label.configure(text=self.generator.get_locale_string(lang, "folder_unavailable_error"), text_color="red")
             return
         try:
             if hasattr(os, "startfile"):
@@ -1356,17 +1405,17 @@ class App(ctk.CTk):
                 subprocess.Popen(["open", folder])
             else:
                 subprocess.Popen(["xdg-open", folder])
-        except OSError as e:
-            self.status_label.configure(text=f"Could not open folder: {e}", text_color="red")
+        except OSError:
+            self.status_label.configure(text=self.generator.get_locale_string(lang, "open_folder_error"), text_color="red")
 
     def copy_alt(self):
         if self.alt_text:
+            lang = self.get_lang_key()
             try:
                 pyperclip.copy(self.alt_text)
-            except Exception as e:
-                self.status_label.configure(text=f"Clipboard error: {e}", text_color="red")
+            except Exception:
+                self.status_label.configure(text=self.generator.get_locale_string(lang, "clipboard_error"), text_color="red")
                 return
-            lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"), text_color="green")
             original_text = self.generator.get_locale_string(lang, "copy_alt_text_btn")
             self.copy_alt_btn.configure(text="✓ " + original_text)
@@ -1374,12 +1423,12 @@ class App(ctk.CTk):
 
     def copy_caption(self):
         if self.caption:
+            lang = self.get_lang_key()
             try:
                 pyperclip.copy(self.caption)
-            except Exception as e:
-                self.status_label.configure(text=f"Clipboard error: {e}", text_color="red")
+            except Exception:
+                self.status_label.configure(text=self.generator.get_locale_string(lang, "clipboard_error"), text_color="red")
                 return
-            lang = self.get_lang_key()
             self.status_label.configure(text=self.generator.get_locale_string(lang, "copy_success_msg"), text_color="green")
             original_text = self.generator.get_locale_string(lang, "copy_caption_btn")
             self.copy_caption_btn.configure(text="✓ " + original_text)
