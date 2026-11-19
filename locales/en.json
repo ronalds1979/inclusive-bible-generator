@@ -68,5 +68,14 @@
   "clear_custom_image_tooltip": "Revert to built-in background image",
   "folder_unavailable_error": "Output folder is unavailable.",
   "open_folder_error": "Could not open output folder.",
-  "clipboard_error": "Could not copy to clipboard."
+  "clipboard_error": "Could not copy to clipboard.",
+  "reset_bg_dim_tooltip": "Reset background dim to default (50%)",
+  "contrast_warning_ratio_msg": "⚠️ Low contrast ({ratio}:1 — AA requires 4.5:1): increase Background Dim or change text color.",
+  "theme_system": "System",
+  "theme_light": "Light",
+  "theme_dark": "Dark",
+  "theme_tooltip": "Switch app appearance theme (System / Light / Dark)",
+  "shortcuts_btn_tooltip": "Keyboard shortcuts (F1)",
+  "shortcuts_title": "Keyboard Shortcuts",
+  "shortcuts_close": "Close"
 }

@@ -68,5 +68,14 @@
   "clear_custom_image_tooltip": "Volver a la imagen de fondo predeterminada",
   "folder_unavailable_error": "La carpeta de salida no está disponible.",
   "open_folder_error": "No se pudo abrir la carpeta de salida.",
-  "clipboard_error": "No se pudo copiar al portapapeles."
+  "clipboard_error": "No se pudo copiar al portapapeles.",
+  "reset_bg_dim_tooltip": "Restablecer oscurecimiento predeterminado del fondo (50%)",
+  "contrast_warning_ratio_msg": "⚠️ Bajo contraste ({ratio}:1 — AA requiere 4.5:1): aumenta Oscurecer Fondo o cambia el color del texto.",
+  "theme_system": "Sistema",
+  "theme_light": "Claro",
+  "theme_dark": "Oscuro",
+  "theme_tooltip": "Cambiar tema de apariencia (Sistema / Claro / Oscuro)",
+  "shortcuts_btn_tooltip": "Atajos de teclado (F1)",
+  "shortcuts_title": "Atajos de Teclado",
+  "shortcuts_close": "Cerrar"
 }

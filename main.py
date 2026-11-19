@@ -50,6 +50,9 @@ class App(ctk.CTk):
 
         self.title("inclusive-bible-generator")
         self.geometry("1100x750")
+        self.minsize(920, 620)
+        self._shortcuts_dialog = None
+        self._theme_mode = "System"
 
         self.grid_columnconfigure(0, weight=1) # Left side controls
         self.grid_columnconfigure(1, weight=1) # Right side preview
@@ -67,15 +70,45 @@ class App(ctk.CTk):
         self.right_frame.grid_columnconfigure(0, weight=1)
         self.right_frame.grid_rowconfigure(0, weight=1)
 
-        # Language Selector
+        # Top Bar: Language Selector + Appearance Theme + Shortcuts Help
+        self.top_bar_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
+        self.top_bar_frame.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+        self.top_bar_frame.grid_columnconfigure(0, weight=2)
+        self.top_bar_frame.grid_columnconfigure(1, weight=1)
+        self.top_bar_frame.grid_columnconfigure(2, weight=0)
+
         self.lang_var = ctk.StringVar(value="Português (Brasil)")
         self.lang_dropdown = ctk.CTkOptionMenu(
-            self.left_frame,
+            self.top_bar_frame,
             values=["Português (Brasil)", "English (US/UK)", "Español (España)"],
             variable=self.lang_var,
             command=self.change_language
         )
-        self.lang_dropdown.grid(row=0, column=0, columnspan=2, pady=(0, 10), sticky="ew")
+        self.lang_dropdown.grid(row=0, column=0, padx=(0, 6), sticky="ew")
+
+        self.theme_var = ctk.StringVar(value="Sistema")
+        self.theme_dropdown = ctk.CTkOptionMenu(
+            self.top_bar_frame,
+            values=["Sistema", "Claro", "Escuro"],
+            variable=self.theme_var,
+            width=105,
+            command=self.change_theme,
+        )
+        self.theme_dropdown.grid(row=0, column=1, padx=(0, 6), sticky="ew")
+        self._bind_hint(self.theme_dropdown, "theme_tooltip")
+
+        self.shortcuts_btn = ctk.CTkButton(
+            self.top_bar_frame,
+            text="?",
+            width=30,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            text_color=("gray15", "gray90"),
+            command=self.show_shortcuts_dialog,
+        )
+        self.shortcuts_btn.grid(row=0, column=2, sticky="e")
+        self._bind_hint(self.shortcuts_btn, "shortcuts_btn_tooltip")
 
         # Instructions
         self.instructions_label = ctk.CTkLabel(self.left_frame, text="", text_color="gray", justify="left", wraplength=460)
@@ -91,7 +124,11 @@ class App(ctk.CTk):
 
         self.bible_version_var = ctk.StringVar()
         self.bible_version_dropdown = ctk.CTkOptionMenu(
-            self.api_frame, values=["-"], variable=self.bible_version_var, state="disabled"
+            self.api_frame,
+            values=["-"],
+            variable=self.bible_version_var,
+            state="disabled",
+            command=self._on_bible_version_changed,
         )
         self.bible_version_dropdown.grid(row=1, column=0, padx=(0, 5), sticky="ew")
         self.bible_versions_map = {}
@@ -232,8 +269,26 @@ class App(ctk.CTk):
         self.clear_custom_img_btn.grid_remove()
         self._default_bg_file = bg_files[0]
 
-        self.bg_dim_label = ctk.CTkLabel(self.bg_frame, text="Escurecer Fundo: 50%")
-        self.bg_dim_label.grid(row=1, column=0, columnspan=2, pady=(8, 2), sticky="w")
+        self.bg_dim_header = ctk.CTkFrame(self.bg_frame, fg_color="transparent")
+        self.bg_dim_header.grid(row=1, column=0, columnspan=3, pady=(8, 2), sticky="ew")
+        self.bg_dim_header.grid_columnconfigure(0, weight=1)
+
+        self.bg_dim_label = ctk.CTkLabel(self.bg_dim_header, text="Escurecer Fundo: 50%")
+        self.bg_dim_label.grid(row=0, column=0, sticky="w")
+
+        self.reset_bg_dim_btn = ctk.CTkButton(
+            self.bg_dim_header,
+            text="↺ 50%",
+            width=52,
+            height=22,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("gray60", "gray40"),
+            text_color=("gray20", "gray85"),
+            command=self.reset_bg_dim,
+        )
+        self.reset_bg_dim_btn.grid(row=0, column=1, sticky="e")
+        self._bind_hint(self.reset_bg_dim_btn, "reset_bg_dim_tooltip")
 
         self.bg_dim_var = ctk.IntVar(value=50)
         self.bg_dim_slider = ctk.CTkSlider(
@@ -252,7 +307,7 @@ class App(ctk.CTk):
             fg_color=("#FFF3CD", "#3B2F14"),
             corner_radius=6,
         )
-        self.contrast_warning_frame.grid(row=3, column=0, columnspan=2, pady=(8, 0), sticky="ew")
+        self.contrast_warning_frame.grid(row=3, column=0, columnspan=3, pady=(8, 0), sticky="ew")
         self.contrast_warning_frame.grid_columnconfigure(0, weight=1)
         self.contrast_warning_label = ctk.CTkLabel(
             self.contrast_warning_frame,
@@ -448,6 +503,7 @@ class App(ctk.CTk):
         self.bind("<Control-O>", lambda _e: self.open_output_folder())
         self.bind("<Control-Shift-X>", lambda _e: self.clear_verse_inputs())
         self.bind("<Control-Shift-x>", lambda _e: self.clear_verse_inputs())
+        self.bind("<F1>", lambda _e: self.show_shortcuts_dialog())
 
         # Output Textbox (Alt-Text & Caption)
         self.output_textbox = ctk.CTkTextbox(self.left_frame, height=150, state="disabled")
@@ -488,6 +544,7 @@ class App(ctk.CTk):
 
         self.status_label = ctk.CTkLabel(self.status_bar, text="", text_color="gray", anchor="w", wraplength=1040)
         self.status_label.grid(row=0, column=0, padx=12, pady=6, sticky="ew")
+        self.status_bar.bind("<Configure>", self._on_status_bar_resize)
 
         self.alt_text = ""
         self.caption = ""
@@ -600,8 +657,81 @@ class App(ctk.CTk):
         self.verse_num_var.set(verse)
         self.apply_quick_reference(fetch=True)
 
+    def _on_status_bar_resize(self, event):
+        new_wrap = max(240, int(event.width) - 28)
+        if getattr(self, "_last_status_wrap", None) != new_wrap:
+            self._last_status_wrap = new_wrap
+            self.status_label.configure(wraplength=new_wrap)
+
+    def _on_bible_version_changed(self, _choice):
+        if not getattr(self, "api_loading", False) and self.reference_input.get().strip():
+            self.fetch_verse()
+
+    def change_theme(self, choice):
+        lang = self.get_lang_key()
+        light_label = self.generator.get_locale_string(lang, "theme_light")
+        dark_label = self.generator.get_locale_string(lang, "theme_dark")
+        if choice == light_label:
+            mode = "Light"
+        elif choice == dark_label:
+            mode = "Dark"
+        else:
+            mode = "System"
+        self._theme_mode = mode
+        ctk.set_appearance_mode(mode)
+
+    def show_shortcuts_dialog(self):
+        if self._shortcuts_dialog is not None and self._shortcuts_dialog.winfo_exists():
+            self._shortcuts_dialog.focus_set()
+            return
+        lang = self.get_lang_key()
+        dlg = ctk.CTkToplevel(self)
+        self._shortcuts_dialog = dlg
+        dlg.title(self.generator.get_locale_string(lang, "shortcuts_title"))
+        dlg.geometry("420x320")
+        dlg.resizable(False, False)
+        dlg.transient(self)
+        dlg.grab_set()
+        dlg.bind("<Escape>", lambda _e: dlg.destroy())
+
+        rows = [
+            ("Ctrl+G", self.generator.get_locale_string(lang, "generate_btn")),
+            ("Ctrl+F", self.generator.get_locale_string(lang, "fetch_verse_btn")),
+            ("Ctrl+D", self.generator.get_locale_string(lang, "votd_btn")),
+            ("Ctrl+Shift+C", self.generator.get_locale_string(lang, "copy_alt_text_btn")),
+            ("Ctrl+Shift+L", self.generator.get_locale_string(lang, "copy_caption_btn")),
+            ("Ctrl+O", self.generator.get_locale_string(lang, "open_output_btn")),
+            ("Ctrl+Shift+X", self.generator.get_locale_string(lang, "clear_inputs_tooltip")),
+            ("F1", self.generator.get_locale_string(lang, "shortcuts_title")),
+        ]
+
+        container = ctk.CTkFrame(dlg, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=18, pady=16)
+        container.grid_columnconfigure(1, weight=1)
+
+        for idx, (key_combo, desc) in enumerate(rows):
+            ctk.CTkLabel(container, text=key_combo, font=ctk.CTkFont(family="Consolas", size=12, weight="bold")).grid(
+                row=idx, column=0, padx=(0, 14), pady=4, sticky="w"
+            )
+            ctk.CTkLabel(container, text=desc, anchor="w", justify="left").grid(
+                row=idx, column=1, pady=4, sticky="w"
+            )
+
+        close_btn = ctk.CTkButton(
+            dlg,
+            text=self.generator.get_locale_string(lang, "shortcuts_close"),
+            width=100,
+            command=dlg.destroy,
+        )
+        close_btn.pack(pady=(0, 14))
+        close_btn.focus_set()
+
     def _on_bg_dim_changed(self, value):
         self.trigger_preview()
+
+    def reset_bg_dim(self):
+        self.bg_dim_var.set(50)
+        self._on_bg_dim_changed(50)
 
     def _on_font_size_changed(self, value):
         self.trigger_preview()
@@ -648,6 +778,12 @@ class App(ctk.CTk):
         lang = self.get_lang_key()
 
         self.title(self.generator.get_locale_string(lang, "title"))
+        theme_system = self.generator.get_locale_string(lang, "theme_system")
+        theme_light = self.generator.get_locale_string(lang, "theme_light")
+        theme_dark = self.generator.get_locale_string(lang, "theme_dark")
+        self.theme_dropdown.configure(values=[theme_system, theme_light, theme_dark])
+        mode_to_label = {"System": theme_system, "Light": theme_light, "Dark": theme_dark}
+        self.theme_var.set(mode_to_label.get(getattr(self, "_theme_mode", "System"), theme_system))
         self.instructions_label.configure(text=self.generator.get_locale_string(lang, "instructions"))
         self._last_verse_label_text = None
         self.verse_label.configure(text=self.generator.get_locale_string(lang, "verse_label"))
@@ -913,10 +1049,11 @@ class App(ctk.CTk):
     def _update_contrast_warning(self):
         if not hasattr(self, "contrast_warning_frame"):
             return
-        if self._is_low_contrast():
+        ratio = self._compute_contrast_ratio()
+        if ratio is not None and ratio < 4.5:
             lang = self.get_lang_key()
             self.contrast_warning_label.configure(
-                text=self.generator.get_locale_string(lang, "contrast_warning_msg")
+                text=self.generator.get_locale_string(lang, "contrast_warning_ratio_msg", ratio=f"{ratio:.1f}")
             )
             self.contrast_fix_btn.configure(
                 text=self.generator.get_locale_string(lang, "contrast_fix_btn")
@@ -924,6 +1061,19 @@ class App(ctk.CTk):
             self.contrast_warning_frame.grid()
         else:
             self.contrast_warning_frame.grid_remove()
+
+    @staticmethod
+    def _srgb_channel_to_linear(channel_255):
+        c = channel_255 / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    @classmethod
+    def _rgb_relative_luminance(cls, r, g, b):
+        return (
+            0.2126 * cls._srgb_channel_to_linear(r)
+            + 0.7152 * cls._srgb_channel_to_linear(g)
+            + 0.0722 * cls._srgb_channel_to_linear(b)
+        )
 
     def _get_background_luminance(self):
         bg_path = self.custom_image_path or os.path.join(self.generator.backgrounds_dir, self.bg_var.get())
@@ -934,7 +1084,7 @@ class App(ctk.CTk):
         if bg_path in cache:
             cache.move_to_end(bg_path)
             return cache[bg_path]
-        lum = 0.35
+        lum = 0.25
         try:
             if (
                 os.path.isfile(bg_path)
@@ -951,7 +1101,7 @@ class App(ctk.CTk):
                         thumb = img.convert("RGB").resize((16, 16))
                         pixels = list(thumb.getdata())
                         if pixels:
-                            lum = sum((0.299 * r + 0.587 * g + 0.114 * b) / 255 for r, g, b in pixels) / len(pixels)
+                            lum = sum(self._rgb_relative_luminance(r, g, b) for r, g, b in pixels) / len(pixels)
         except Exception:
             pass
         cache[bg_path] = lum
@@ -959,17 +1109,21 @@ class App(ctk.CTk):
             cache.popitem(last=False)
         return lum
 
-    def _is_low_contrast(self):
+    def _compute_contrast_ratio(self):
         color = self.font_color_var.get().strip()
         lum = self._color_luminance(color)
         if lum is None:
-            return False
+            return None
         bg_dim = max(0, min(100, int(self.bg_dim_var.get())))
-        effective_bg_lum = self._get_background_luminance() * (1.0 - (bg_dim / 100.0))
+        dim_factor = (1.0 - (bg_dim / 100.0)) ** 2.2
+        effective_bg_lum = self._get_background_luminance() * dim_factor
         lighter = max(lum, effective_bg_lum)
         darker = min(lum, effective_bg_lum)
-        contrast_ratio = (lighter + 0.05) / (darker + 0.05)
-        return contrast_ratio < 4.5
+        return (lighter + 0.05) / (darker + 0.05)
+
+    def _is_low_contrast(self):
+        ratio = self._compute_contrast_ratio()
+        return ratio is not None and ratio < 4.5
 
     def auto_fix_contrast(self):
         lum = self._color_luminance(self.font_color_var.get().strip())
@@ -1015,6 +1169,11 @@ class App(ctk.CTk):
             self.font_size_label.configure(text=f"{self.generator.get_locale_string(lang, 'font_size_label')}: {font_size}")
             self.y_offset_label.configure(text=f"{self.generator.get_locale_string(lang, 'y_offset_label')}: {y_offset}")
             self.bg_dim_label.configure(text=f"{self.generator.get_locale_string(lang, 'background_dim_label')}: {bg_dim}%")
+
+        reset_bg_dim_state = "normal" if bg_dim != 50 else "disabled"
+        if getattr(self, "_last_reset_bg_dim_state", None) != reset_bg_dim_state:
+            self._last_reset_bg_dim_state = reset_bg_dim_state
+            self.reset_bg_dim_btn.configure(state=reset_bg_dim_state)
 
         reset_font_state = "normal" if font_size != 60 else "disabled"
         if getattr(self, "_last_reset_font_state", None) != reset_font_state:
@@ -1075,14 +1234,14 @@ class App(ctk.CTk):
         if len(hex_val) == 3:
             hex_val = "".join(c * 2 for c in hex_val)
         r, g, b = int(hex_val[0:2], 16), int(hex_val[2:4], 16), int(hex_val[4:6], 16)
-        return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        return cls._rgb_relative_luminance(r, g, b)
 
     @classmethod
     def _contrast_text_color(cls, hex_color):
         luminance = cls._color_luminance(hex_color)
         if luminance is None:
             return "#FFFFFF"
-        return "#000000" if luminance > 0.5 else "#FFFFFF"
+        return "#000000" if luminance > 0.179 else "#FFFFFF"
 
     def _sync_color_swatch(self):
         color = self.font_color_var.get().strip()

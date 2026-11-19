@@ -68,5 +68,14 @@
   "clear_custom_image_tooltip": "Voltar para a imagem de fundo padrão",
   "folder_unavailable_error": "A pasta de saída não está disponível.",
   "open_folder_error": "Não foi possível abrir a pasta de saída.",
-  "clipboard_error": "Não foi possível copiar para a área de transferência."
+  "clipboard_error": "Não foi possível copiar para a área de transferência.",
+  "reset_bg_dim_tooltip": "Restaurar escurecimento padrão do fundo (50%)",
+  "contrast_warning_ratio_msg": "⚠️ Baixo contraste ({ratio}:1 — AA exige 4.5:1): aumente o Escurecer Fundo ou mude a cor do texto.",
+  "theme_system": "Sistema",
+  "theme_light": "Claro",
+  "theme_dark": "Escuro",
+  "theme_tooltip": "Alternar tema visual (Sistema / Claro / Escuro)",
+  "shortcuts_btn_tooltip": "Atalhos de teclado (F1)",
+  "shortcuts_title": "Atalhos de Teclado",
+  "shortcuts_close": "Fechar"
 }
