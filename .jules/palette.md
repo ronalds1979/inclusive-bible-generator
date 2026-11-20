@@ -46,3 +46,7 @@
 ## 2026-11-17 - Live Alt-Text/Caption Preview, Quick Clear & Font Reset
 **Learning:** Waiting until full image/audio export before populating the Alt-Text and Social Media Caption textbox (and enabling copy buttons) prevents users who only want accessible text or quick copy-paste workflows from seeing immediate feedback. Also, having a reset shortcut for vertical offset without an equivalent reset for font size feels asymmetric.
 **Action:** Generate and display Alt-Text and Caption synchronously during debounced live previews (and clear/disable copy buttons when inputs are empty), add a one-click `↺ 60` font-size reset button, surface a live character count with a `✕` clear action above the verse box, and bind `Ctrl+F` / `Ctrl+D` shortcuts.
+
+## 2026-11-20 - Empty-State Parity and Immediate Language Sync for Output Textbox
+**Learning:** Leaving `output_textbox` blank when inputs are empty or cleared creates an unexplained empty box next to disabled Copy buttons, and switching UI language left `output_textbox` stale until the next debounced preview.
+**Action:** Show a muted localized `output_empty_state` message in `output_textbox` whenever verse or reference is empty, and reset/sync `_sync_live_output_texts` directly inside `update_ui_texts`.

@@ -77,5 +77,6 @@
   "theme_tooltip": "Cambiar tema de apariencia (Sistema / Claro / Oscuro)",
   "shortcuts_btn_tooltip": "Atajos de teclado (F1)",
   "shortcuts_title": "Atajos de Teclado",
-  "shortcuts_close": "Cerrar"
+  "shortcuts_close": "Cerrar",
+  "output_empty_state": "El Alt-Text y la Leyenda aparecerán aquí automáticamente en cuanto ingreses un versículo y una referencia."
 }

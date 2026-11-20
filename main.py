@@ -897,6 +897,12 @@ class App(ctk.CTk):
         self._showing_hover_hint = False
         self.status_label.configure(text="", text_color="gray")
         self._update_contrast_warning()
+        self._last_live_texts_key = None
+        self._sync_live_output_texts(
+            lang,
+            self.verse_input.get("1.0", "end-1c").strip(),
+            self.reference_input.get().strip(),
+        )
         if not getattr(self.preview_label, "image", None):
             self.preview_label.configure(text=self.generator.get_locale_string(lang, "preview_empty_state"))
 
@@ -1358,7 +1364,7 @@ class App(ctk.CTk):
             alt_label = self.generator.get_locale_string(lang, "alt_text_label")
             cap_label = self.generator.get_locale_string(lang, "caption_label")
             display_text = f"--- {alt_label} ---\n{self.alt_text}\n\n--- {cap_label} ---\n{self.caption}"
-            self.output_textbox.configure(state="normal")
+            self.output_textbox.configure(state="normal", text_color=ctk.ThemeManager.theme["CTkTextbox"]["text_color"])
             self.output_textbox.delete("1.0", "end")
             self.output_textbox.insert("1.0", display_text)
             self.output_textbox.configure(state="disabled")
@@ -1367,8 +1373,9 @@ class App(ctk.CTk):
         else:
             self.alt_text = ""
             self.caption = ""
-            self.output_textbox.configure(state="normal")
+            self.output_textbox.configure(state="normal", text_color="gray")
             self.output_textbox.delete("1.0", "end")
+            self.output_textbox.insert("1.0", self.generator.get_locale_string(lang, "output_empty_state"))
             self.output_textbox.configure(state="disabled")
             self.copy_alt_btn.configure(state="disabled")
             self.copy_caption_btn.configure(state="disabled")

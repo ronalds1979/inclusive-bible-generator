@@ -77,5 +77,6 @@
   "theme_tooltip": "Alternar tema visual (Sistema / Claro / Escuro)",
   "shortcuts_btn_tooltip": "Atalhos de teclado (F1)",
   "shortcuts_title": "Atalhos de Teclado",
-  "shortcuts_close": "Fechar"
+  "shortcuts_close": "Fechar",
+  "output_empty_state": "O Alt-Text e a Legenda aparecerão aqui automaticamente assim que você informar um versículo e uma referência."
 }
