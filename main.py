@@ -1055,18 +1055,33 @@ class App(ctk.CTk):
     def _update_contrast_warning(self):
         if not hasattr(self, "contrast_warning_frame"):
             return
+        lang = self.get_lang_key()
+        color = self.font_color_var.get().strip()
+        bg_dim = max(0, min(100, int(self.bg_dim_var.get())))
+        bg_source = self.custom_image_path or self.bg_var.get()
+        # ⚡ Bolt: Skip contrast math and Tkinter .configure()/.grid() layout thrash when contrast inputs are unchanged
+        input_key = (lang, color, bg_dim, bg_source)
+        if getattr(self, "_last_contrast_inputs", None) == input_key:
+            return
+        self._last_contrast_inputs = input_key
+
         ratio = self._compute_contrast_ratio()
         if ratio is not None and ratio < 4.5:
-            lang = self.get_lang_key()
-            self.contrast_warning_label.configure(
-                text=self.generator.get_locale_string(lang, "contrast_warning_ratio_msg", ratio=f"{ratio:.1f}")
-            )
-            self.contrast_fix_btn.configure(
-                text=self.generator.get_locale_string(lang, "contrast_fix_btn")
-            )
-            self.contrast_warning_frame.grid()
+            ui_state = (True, lang, f"{ratio:.1f}")
+            if getattr(self, "_last_contrast_ui_state", None) != ui_state:
+                self._last_contrast_ui_state = ui_state
+                self.contrast_warning_label.configure(
+                    text=self.generator.get_locale_string(lang, "contrast_warning_ratio_msg", ratio=ui_state[2])
+                )
+                self.contrast_fix_btn.configure(
+                    text=self.generator.get_locale_string(lang, "contrast_fix_btn")
+                )
+                self.contrast_warning_frame.grid()
         else:
-            self.contrast_warning_frame.grid_remove()
+            ui_state = (False, None, None)
+            if getattr(self, "_last_contrast_ui_state", None) != ui_state:
+                self._last_contrast_ui_state = ui_state
+                self.contrast_warning_frame.grid_remove()
 
     @staticmethod
     def _srgb_channel_to_linear(channel_255):

@@ -46,3 +46,7 @@
 ## 2026-11-17 - Fast PNG Compression, Cached Dimming LUTs & Canonical Book Cache
 **Learning:** Pillow's default PNG `compress_level=6` spends substantial CPU time compressing high-resolution verse exports, while non-50% background dimming rebuilds a 768-element LUT list comprehension per render. Additionally, rebuilding the 66-book canonical list and running `re.sub` on TTS strings adds avoidable overhead.
 **Action:** Save generated PNGs with `compress_level=1`, cache dimming LUTs by `dim_key` in `Generator.DARKEN_LUTS`, use `str.translate(ANGLE_BRACKET_STRIP_MAP)` for TTS angle-bracket stripping, cache canonical book lists in `App._CANONICAL_BOOKS_CACHE`, and hoist repeated locale lookups in `update_ui_texts()`.
+
+## 2026-11-20 - Memoize Contrast Warning State in trigger_preview()
+**Learning:** Even when slider labels and button states are memoized in `trigger_preview()`, an un-memoized `_update_contrast_warning()` still recomputes contrast ratios and calls Tkinter `.configure()` and `.grid()`/`.grid_remove()` on every keystroke, font-size change, and Y-offset drag tick, causing redundant grid layout passes.
+**Action:** Gate `_update_contrast_warning()` on `(lang, color, bg_dim, bg_source)` and memoize the rendered UI state tuple before calling `.configure()` or `.grid()`/`.grid_remove()`.
