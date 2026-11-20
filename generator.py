@@ -82,13 +82,32 @@ class Generator:
             return False
 
     @classmethod
-    def _is_valid_raster_image(cls, path, max_bytes=20 * 1024 * 1024):
+    def _open_regular_nofollow(cls, path, mode="rb", max_bytes=20 * 1024 * 1024, encoding=None):
+        """Atomically open a verified regular file without following symlinks to prevent TOCTOU."""
         if not cls._is_safe_regular_file(path, max_bytes=max_bytes):
-            return False
+            raise ValueError("Unsafe or invalid regular file")
+        # 🛡️ Sentinel: Open with O_NOFOLLOW and re-verify fstat mode/size on the open descriptor
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         try:
-            with open(path, "rb") as f:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or not (0 < st.st_size <= max_bytes):
+                raise ValueError("Path is not a regular file within allowed size")
+            if "b" in mode:
+                return os.fdopen(fd, mode)
+            return os.fdopen(fd, mode, encoding=encoding)
+        except Exception:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            raise
+
+    @classmethod
+    def _is_valid_raster_image(cls, path, max_bytes=20 * 1024 * 1024):
+        try:
+            with cls._open_regular_nofollow(path, mode="rb", max_bytes=max_bytes) as f:
                 header = f.read(8)
-        except OSError:
+        except (OSError, ValueError):
             return False
         is_png = header.startswith(b"\x89PNG\r\n\x1a\n")
         is_jpeg = header.startswith(b"\xff\xd8\xff")
@@ -151,11 +170,14 @@ class Generator:
             return
         for filename in sorted(ALLOWED_LOCALE_FILES):
             locale_path = os.path.join(locales_dir, filename)
-            if not self._is_safe_regular_file(locale_path, max_bytes=1024 * 1024):
-                continue
             lang_code = filename[:-5]
-            with open(locale_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            try:
+                with self._open_regular_nofollow(
+                    locale_path, mode="r", max_bytes=1024 * 1024, encoding="utf-8"
+                ) as f:
+                    data = json.load(f)
+            except (OSError, ValueError):
+                continue
             if isinstance(data, dict):
                 self.locales[lang_code] = {
                     k: v for k, v in data.items()

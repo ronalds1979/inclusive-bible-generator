@@ -141,6 +141,15 @@ class TestSecurity(unittest.TestCase):
             Image.new("RGB", (8, 8), color=(0, 0, 0)).save(real_jpg, "JPEG")
             self.assertTrue(Generator._is_valid_raster_image(real_jpg))
 
+            # Verify _open_regular_nofollow rejects non-regular mode on open fd (TOCTOU protection)
+            with patch("generator.os.fstat", return_value=os.stat_result((0o120777, 0, 0, 1, 0, 0, 10, 0, 0, 0))):
+                self.assertFalse(Generator._is_valid_raster_image(real_png))
+
+    def test_load_locales_rejects_unsafe_locale_files(self):
+        with patch.object(Generator, "_open_regular_nofollow", side_effect=ValueError("Unsafe or invalid regular file")):
+            gen = Generator()
+            self.assertEqual(gen.locales, {})
+
 
 if __name__ == "__main__":
     unittest.main()
