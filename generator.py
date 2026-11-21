@@ -432,16 +432,24 @@ class Generator:
                 except OSError:
                     bg_mtime = 0
 
-        bg_cache_key = (bg_path, bg_mtime, target_width, target_height, dim_key)
+        # ⚡ Bolt: Cache the un-dimmed resized RGB base background (without dim_key) and derive
+        # dimmed variants on demand via point(LUT). Prevents 17-step dim slider LRU thrashing
+        # and eliminates disk I/O, decoding, cropping, and resizing on background_dim changes.
+        bg_cache_key = (bg_path, bg_mtime, target_width, target_height)
         with self._cache_lock:
             cached_bg = self._bg_cache.get(bg_cache_key)
             if cached_bg is not None:
                 self._bg_cache.move_to_end(bg_cache_key)
-                img = cached_bg.copy()
+                img = (
+                    cached_bg.point(self._get_darken_lut(dim_key))
+                    if dim_key > 0.0
+                    else cached_bg.copy()
+                )
             else:
                 img = None
         if img is None:
             bg_loaded = False
+            base_img = None
             try:
                 if not self._is_safe_regular_file(bg_path):
                     raise ValueError("Invalid or oversized background image")
@@ -474,12 +482,13 @@ class Generator:
                             img = raw_img
 
                         # ⚡ Bolt: Use BILINEAR resampling for fast live previews (max_dimension set)
-                        resample_filter = (
-                            Image.Resampling.BILINEAR
-                            if max_dimension is not None and max_dimension > 0
-                            else Image.Resampling.BICUBIC
-                        )
-                        img = img.resize((target_width, target_height), resample=resample_filter)
+                        if img.size != (target_width, target_height):
+                            resample_filter = (
+                                Image.Resampling.BILINEAR
+                                if max_dimension is not None and max_dimension > 0
+                                else Image.Resampling.BICUBIC
+                            )
+                            img = img.resize((target_width, target_height), resample=resample_filter)
                         if img.mode in ('RGBA', 'LA', 'PA'):
                             base = Image.new('RGB', img.size, (36, 54, 68))
                             rgba = img.convert('RGBA')
@@ -487,16 +496,24 @@ class Generator:
                             img = base
                         elif img.mode != 'RGB':
                             img = img.convert('RGB')
-                        if dim_key > 0.0:
-                            img = img.point(self._get_darken_lut(dim_key))
+                        if img is raw_img:
+                            base_img = img.copy()
+                        else:
+                            img.load()
+                            base_img = img
+                        img = (
+                            base_img.point(self._get_darken_lut(dim_key))
+                            if dim_key > 0.0
+                            else base_img.copy()
+                        )
                         bg_loaded = True
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
 
             # 🛡️ Sentinel: Bound the background cache size with LRU eviction and never cache transient fallback errors
-            if bg_loaded:
+            if bg_loaded and base_img is not None:
                 with self._cache_lock:
-                    self._bg_cache[bg_cache_key] = img.copy()
+                    self._bg_cache[bg_cache_key] = base_img
                     self._bg_cache.move_to_end(bg_cache_key)
                     if len(self._bg_cache) > 16:
                         self._bg_cache.popitem(last=False)

@@ -50,3 +50,7 @@
 ## 2026-11-20 - Memoize Contrast Warning State in trigger_preview()
 **Learning:** Even when slider labels and button states are memoized in `trigger_preview()`, an un-memoized `_update_contrast_warning()` still recomputes contrast ratios and calls Tkinter `.configure()` and `.grid()`/`.grid_remove()` on every keystroke, font-size change, and Y-offset drag tick, causing redundant grid layout passes.
 **Action:** Gate `_update_contrast_warning()` on `(lang, color, bg_dim, bg_source)` and memoize the rendered UI state tuple before calling `.configure()` or `.grid()`/`.grid_remove()`.
+
+## 2026-11-21 - Un-dimmed Base Background Caching Prevents 17-Step LRU Thrashing
+**Learning:** Keying `Generator._bg_cache` (capacity 16) by `dim_key` causes complete cache thrashing when sweeping the 17-step `background_dim` slider (0%–85%), forcing repeated file validation, image decoding, cropping, and resizing on every tick.
+**Action:** Cache only the un-dimmed resized RGB base image under `(bg_path, bg_mtime, target_width, target_height)` and derive dimmed variants via `base_img.point(self._get_darken_lut(dim_key))` (which returns a fresh `Image` without mutating the cached base).
