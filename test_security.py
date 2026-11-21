@@ -150,6 +150,25 @@ class TestSecurity(unittest.TestCase):
             gen = Generator()
             self.assertEqual(gen.locales, {})
 
+    def test_generate_image_falls_back_when_fstat_exceeds_size_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bg_path = os.path.join(tmpdir, "bg.png")
+            Image.new("RGB", (16, 16), color=(200, 100, 50)).save(bg_path, "PNG")
+            # Simulate a TOCTOU swap to > 20 MB on fstat after _is_safe_regular_file passed
+            oversized_stat = os.stat_result((0o100644, 0, 0, 1, 0, 0, 21 * 1024 * 1024, 0, 0, 0))
+            with patch("generator.os.fstat", return_value=oversized_stat):
+                img = self.generator.generate_image(
+                    "English",
+                    "God is love",
+                    "1 John 4:8",
+                    custom_image_path=bg_path,
+                    background_dim=0.0,
+                    max_dimension=64,
+                )
+            self.assertEqual(img.size, (64, 64))
+            # Solid fallback color (36, 54, 68) at pixel (0, 0) instead of (200, 100, 50)
+            self.assertEqual(img.getpixel((0, 0)), (36, 54, 68))
+
 
 if __name__ == "__main__":
     unittest.main()

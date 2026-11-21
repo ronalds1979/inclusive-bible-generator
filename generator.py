@@ -451,13 +451,8 @@ class Generator:
             bg_loaded = False
             base_img = None
             try:
-                if not self._is_safe_regular_file(bg_path):
-                    raise ValueError("Invalid or oversized background image")
-                # ⚡ Bolt: Crop and resize before mode conversion/compositing to avoid processing discarded pixels
-                fd = os.open(bg_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-                with os.fdopen(fd, "rb") as f:
-                    if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
-                        raise ValueError("Background path is not a regular file")
+                # 🛡️ Sentinel: Open background via _open_regular_nofollow so O_NOFOLLOW, S_ISREG, and 20 MB descriptor size cap are enforced atomically
+                with self._open_regular_nofollow(bg_path, mode="rb") as f:
                     with Image.open(f, formats=["PNG", "JPEG"]) as raw_img:
                         if raw_img.width * raw_img.height > MAX_IMAGE_PIXELS:
                             raise ValueError("Image dimensions exceed maximum allowed pixels")

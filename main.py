@@ -2,7 +2,6 @@ import datetime
 import os
 import random
 import re
-import stat
 import subprocess
 import sys
 import threading
@@ -1097,7 +1096,10 @@ class App(ctk.CTk):
         )
 
     def _get_background_luminance(self):
-        bg_path = self.custom_image_path or os.path.join(self.generator.backgrounds_dir, self.bg_var.get())
+        bg_path = self.custom_image_path or os.path.join(
+            self.generator.backgrounds_dir,
+            os.path.basename(self.bg_var.get() or "default.png"),
+        )
         cache = getattr(self, "_bg_luminance_cache", None)
         if cache is None:
             cache = OrderedDict()
@@ -1107,15 +1109,9 @@ class App(ctk.CTk):
             return cache[bg_path]
         lum = 0.25
         try:
-            if (
-                os.path.isfile(bg_path)
-                and self.generator._is_safe_regular_file(bg_path)
-                and self.generator._is_valid_raster_image(bg_path)
-            ):
-                fd = os.open(bg_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-                with os.fdopen(fd, "rb") as f:
-                    if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
-                        raise ValueError("Background path is not a regular file")
+            # 🛡️ Sentinel: Reuse _open_regular_nofollow so O_NOFOLLOW, S_ISREG, and 20 MB descriptor size cap are enforced atomically
+            if self.generator._is_valid_raster_image(bg_path):
+                with self.generator._open_regular_nofollow(bg_path, mode="rb") as f:
                     with Image.open(f, formats=["PNG", "JPEG"]) as img:
                         if img.width * img.height > MAX_IMAGE_PIXELS:
                             raise ValueError("Image dimensions exceed maximum allowed pixels")
