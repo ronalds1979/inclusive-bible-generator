@@ -54,3 +54,7 @@
 ## 2026-11-21 - Un-dimmed Base Background Caching Prevents 17-Step LRU Thrashing
 **Learning:** Keying `Generator._bg_cache` (capacity 16) by `dim_key` causes complete cache thrashing when sweeping the 17-step `background_dim` slider (0%–85%), forcing repeated file validation, image decoding, cropping, and resizing on every tick.
 **Action:** Cache only the un-dimmed resized RGB base image under `(bg_path, bg_mtime, target_width, target_height)` and derive dimmed variants via `base_img.point(self._get_darken_lut(dim_key))` (which returns a fresh `Image` without mutating the cached base).
+
+## 2026-11-21 - JPEG DCT Draft Downscaling & Single-Pass Validation for Background Luminance
+**Learning:** `App._get_background_luminance()` runs synchronously on the UI thread before `preview_content()` populates `Generator._bg_cache`. Calling `img.convert("RGB").resize((16, 16))` without `img.draft("RGB", (16, 16))` decodes full 12MP JPEGs (~117 ms), while validating with `_is_valid_raster_image()` before `_open_regular_nofollow()` walks parent directories for reparse points twice. Note also that `BILINEAR` resampling must only precede `.convert("RGB")` for `"RGB"`/`"RGBA"`/`"L"` modes (palette `"P"` PNGs require RGB conversion first).
+**Action:** Open once via `_open_regular_nofollow()`, verify magic bytes + `f.seek(0)`, call `img.draft("RGB", (16, 16))` for JPEGs, downsample `"RGB"`/`"RGBA"`/`"L"` with `BILINEAR` before `.convert("RGB")`, and read flat bytes with `.tobytes()`.

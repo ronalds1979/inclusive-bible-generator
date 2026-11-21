@@ -1109,16 +1109,31 @@ class App(ctk.CTk):
             return cache[bg_path]
         lum = 0.25
         try:
-            # 🛡️ Sentinel: Reuse _open_regular_nofollow so O_NOFOLLOW, S_ISREG, and 20 MB descriptor size cap are enforced atomically
-            if self.generator._is_valid_raster_image(bg_path):
-                with self.generator._open_regular_nofollow(bg_path, mode="rb") as f:
-                    with Image.open(f, formats=["PNG", "JPEG"]) as img:
-                        if img.width * img.height > MAX_IMAGE_PIXELS:
-                            raise ValueError("Image dimensions exceed maximum allowed pixels")
-                        thumb = img.convert("RGB").resize((16, 16))
-                        pixels = list(thumb.getdata())
-                        if pixels:
-                            lum = sum(self._rgb_relative_luminance(r, g, b) for r, g, b in pixels) / len(pixels)
+            # 🛡️ Sentinel: Single O_NOFOLLOW open + magic-byte check, avoiding duplicate lineage walks
+            # ⚡ Bolt: Use JPEG DCT draft downscaling and resize before RGB conversion / flat byte sampling
+            with self.generator._open_regular_nofollow(bg_path, mode="rb") as f:
+                header = f.read(8)
+                if not (header.startswith(b"\x89PNG\r\n\x1a\n") or header.startswith(b"\xff\xd8\xff")):
+                    raise ValueError("Invalid raster image header")
+                f.seek(0)
+                with Image.open(f, formats=["PNG", "JPEG"]) as img:
+                    if img.width * img.height > MAX_IMAGE_PIXELS:
+                        raise ValueError("Image dimensions exceed maximum allowed pixels")
+                    if img.format == "JPEG":
+                        img.draft("RGB", (16, 16))
+                    if img.mode in ("RGB", "RGBA", "L"):
+                        thumb = img.resize((16, 16), Image.Resampling.BILINEAR)
+                        if thumb.mode != "RGB":
+                            thumb = thumb.convert("RGB")
+                    else:
+                        thumb = img.convert("RGB").resize((16, 16), Image.Resampling.BILINEAR)
+                    raw = thumb.tobytes()
+                    if raw:
+                        total_pixels = len(raw) // 3
+                        lum = sum(
+                            self._rgb_relative_luminance(raw[i], raw[i + 1], raw[i + 2])
+                            for i in range(0, len(raw), 3)
+                        ) / total_pixels
         except Exception:
             pass
         cache[bg_path] = lum
