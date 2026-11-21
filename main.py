@@ -1532,6 +1532,7 @@ class App(ctk.CTk):
 
                 # Collect Audio result
                 audio_msg = ""
+                audio_error = False
                 if audio_future is not None:
                     try:
                         audio_path = audio_future.result()
@@ -1540,9 +1541,10 @@ class App(ctk.CTk):
                         )
                     except Exception:
                         # 🛡️ Sentinel: Do not leak exception strings
+                        audio_error = True
                         audio_msg = self.generator.get_locale_string(lang, "audio_error_msg")
 
-                self.after(0, self._on_generate_complete, lang, audio_msg, image_save_path, alt_text, caption)
+                self.after(0, self._on_generate_complete, lang, audio_msg, image_save_path, alt_text, caption, audio_error)
             except Exception:
                 # 🛡️ Sentinel: Catch unhandled thread exceptions and update UI generically
                 err_msg = self.generator.get_locale_string(lang, "generate_error_msg")
@@ -1556,7 +1558,7 @@ class App(ctk.CTk):
         self.status_label.configure(text=err_msg, text_color="red")
         self.generate_btn.configure(state="normal", text=original_generate_text)
 
-    def _on_generate_complete(self, lang, audio_msg, image_save_path, alt_text, caption):
+    def _on_generate_complete(self, lang, audio_msg, image_save_path, alt_text, caption, audio_error=False):
         self._is_generating = False
         self._last_generate_state = "normal"
         self.last_generated_image_path = image_save_path
@@ -1578,9 +1580,13 @@ class App(ctk.CTk):
         self.copy_caption_btn.configure(state="normal")
         self.open_output_btn.configure(state="normal")
 
-        # Status Label
+        # Status Label (include saved image path and use warning color on partial TTS failure)
         msg = self.generator.get_locale_string(lang, "success_msg")
-        self.status_label.configure(text=msg + audio_msg, text_color="green")
+        saved_msg = self.generator.get_locale_string(
+            lang, "save_success_msg", path=os.path.abspath(image_save_path)
+        )
+        status_color = ("#B45309", "#FBBF24") if audio_error else "green"
+        self.status_label.configure(text=f"{msg} {saved_msg}{audio_msg}", text_color=status_color)
 
         original_text = self.generator.get_locale_string(lang, "generate_btn")
         self.generate_btn.configure(text="✓ " + original_text)
