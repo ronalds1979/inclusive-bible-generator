@@ -565,6 +565,7 @@ class App(ctk.CTk):
         self.preview_label.grid(row=0, column=0, sticky="nsew")
         self.preview_label.bind("<ButtonPress-1>", self._start_preview_drag)
         self.preview_label.bind("<B1-Motion>", self._on_preview_drag)
+        self.preview_label.bind("<ButtonRelease-1>", lambda _e: self._show_hover_hint("drag_preview_hint"))
         self.preview_label.bind("<Double-Button-1>", lambda _e: self.reset_y_offset())
         self.preview_label.bind("<Enter>", lambda _e: self._show_hover_hint("drag_preview_hint"))
         self.preview_label.bind("<Leave>", lambda _e: self._clear_hover_hint())
@@ -1047,9 +1048,14 @@ class App(ctk.CTk):
             return
         delta = (event.y_root - self._drag_start_y) * 2
         updated = max(-400, min(400, int(round(self._drag_start_offset + delta))))
+        if abs(updated) <= 10:
+            updated = 0
         if updated != self.y_offset_var.get():
             self.y_offset_var.set(updated)
             self.trigger_preview()
+        y_label = self.generator.get_locale_string(self.get_lang_key(), "y_offset_label")
+        pos_text = f"↕ {y_label}: 0 ✓" if updated == 0 else f"↕ {y_label}: {updated:+d}"
+        self._set_hover_hint_text(pos_text)
 
     def _update_contrast_warning(self):
         if not hasattr(self, "contrast_warning_frame"):
