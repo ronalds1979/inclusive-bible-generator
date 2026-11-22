@@ -256,16 +256,15 @@ class Generator:
         target_dir = os.path.dirname(os.path.abspath(output_path))
         os.makedirs(target_dir, exist_ok=True)
 
-        async def _stream_to_temp(communicate, temp_path):
+        async def _stream_to_file(communicate, audio_file):
             total_bytes = 0
-            with open(temp_path, "wb") as audio_file:
-                async for message in communicate.stream():
-                    if message.get("type") == "audio":
-                        chunk = message.get("data", b"")
-                        total_bytes += len(chunk)
-                        if total_bytes > MAX_AUDIO_BYTES:
-                            raise ValueError("TTS audio stream exceeds maximum allowed size")
-                        audio_file.write(chunk)
+            async for message in communicate.stream():
+                if message.get("type") == "audio":
+                    chunk = message.get("data", b"")
+                    total_bytes += len(chunk)
+                    if total_bytes > MAX_AUDIO_BYTES:
+                        raise ValueError("TTS audio stream exceeds maximum allowed size")
+                    audio_file.write(chunk)
 
         async def _generate():
             temp_fd, temp_path = tempfile.mkstemp(
@@ -273,20 +272,28 @@ class Generator:
                 prefix=".tmp_tts_",
                 suffix=".mp3",
             )
-            os.close(temp_fd)
             try:
                 # 🛡️ Sentinel: Strip angle brackets to prevent SSML injection while avoiding double XML-escaping in edge-tts
                 safe_text_to_read = text_to_read.translate(self.ANGLE_BRACKET_STRIP_MAP)
 
                 # Adjust the rate to be slightly slower (-15%) for a more natural, documentary-style narration
                 communicate = edge_tts.Communicate(safe_text_to_read, voice, rate="-15%")
-                # 🛡️ Sentinel: Enforce strict timeout and byte cap on external TTS service to prevent DoS/thread hanging
-                await asyncio.wait_for(_stream_to_temp(communicate, temp_path), timeout=60)
+                # 🛡️ Sentinel: Keep the exclusive mkstemp descriptor open via os.fdopen (no close/reopen TOCTOU),
+                # enforce strict timeout/byte cap, and re-validate output_path before atomic replace
+                with os.fdopen(temp_fd, "wb") as audio_file:
+                    temp_fd = None
+                    await asyncio.wait_for(_stream_to_file(communicate, audio_file), timeout=60)
+                self._validate_safe_output_path(output_path)
                 os.replace(temp_path, output_path)
             except asyncio.TimeoutError as e:
                 logger.error("TTS generation timed out.")
                 raise Exception("TTS generation timed out.") from e
             finally:
+                if temp_fd is not None:
+                    try:
+                        os.close(temp_fd)
+                    except OSError:
+                        pass
                 if os.path.exists(temp_path):
                     try:
                         os.remove(temp_path)

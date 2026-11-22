@@ -169,6 +169,44 @@ class TestSecurity(unittest.TestCase):
             # Solid fallback color (36, 54, 68) at pixel (0, 0) instead of (200, 100, 50)
             self.assertEqual(img.getpixel((0, 0)), (36, 54, 68))
 
+    def test_generate_audio_uses_fdopen_and_revalidates_before_replace(self):
+        class _FakeCommunicate:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            async def stream(self):
+                yield {"type": "audio", "data": b"ID3mock"}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "verse.mp3")
+            with patch("generator.edge_tts.Communicate", _FakeCommunicate):
+                with patch("generator.os.fdopen", wraps=os.fdopen) as mock_fdopen:
+                    result = self.generator.generate_audio(
+                        "English",
+                        "God is love",
+                        "1 John 4:8",
+                        custom_output_path=out_path,
+                    )
+                    self.assertEqual(result, out_path)
+                    self.assertTrue(mock_fdopen.called)
+            with open(out_path, "rb") as f:
+                self.assertEqual(f.read(), b"ID3mock")
+
+            # Simulate symlink/junction swap on output_path during async TTS stream
+            swapped_path = os.path.join(tmpdir, "swapped.mp3")
+            with patch("generator.edge_tts.Communicate", _FakeCommunicate), patch.object(
+                Generator, "_has_reparse_in_lineage", side_effect=[False, True]
+            ):
+                with self.assertRaises(ValueError):
+                    self.generator.generate_audio(
+                        "English",
+                        "God is love",
+                        "1 John 4:8",
+                        custom_output_path=swapped_path,
+                    )
+            self.assertFalse(os.path.exists(swapped_path))
+            self.assertEqual([n for n in os.listdir(tmpdir) if n.startswith(".tmp_tts_")], [])
+
 
 if __name__ == "__main__":
     unittest.main()
