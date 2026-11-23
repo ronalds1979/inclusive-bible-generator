@@ -48,8 +48,18 @@ class Generator:
 
     @staticmethod
     def _is_reparse_point(path):
-        is_junction = getattr(os.path, "isjunction", lambda _p: False)
-        return os.path.islink(path) or is_junction(path)
+        is_junction = getattr(os.path, "isjunction", None)
+        if os.path.islink(path) or (callable(is_junction) and is_junction(path)):
+            return True
+        # 🛡️ Sentinel: Fallback for Python <3.12 on Windows where os.path.isjunction is unavailable
+        reparse_attr = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+        if reparse_attr:
+            try:
+                lst = os.lstat(path)
+                return bool(getattr(lst, "st_file_attributes", 0) & reparse_attr)
+            except OSError:
+                return False
+        return False
 
     @classmethod
     def _has_reparse_in_lineage(cls, path):
@@ -86,12 +96,19 @@ class Generator:
         """Atomically open a verified regular file without following symlinks to prevent TOCTOU."""
         if not cls._is_safe_regular_file(path, max_bytes=max_bytes):
             raise ValueError("Unsafe or invalid regular file")
-        # 🛡️ Sentinel: Open with O_NOFOLLOW and re-verify fstat mode/size on the open descriptor
+        lst = os.lstat(path)
+        if stat.S_ISLNK(lst.st_mode) or cls._is_reparse_point(path):
+            raise ValueError("Refusing to open symlink or reparse point")
+        # 🛡️ Sentinel: Open with O_NOFOLLOW where supported and verify inode/lineage identity (guards Windows where O_NOFOLLOW is 0)
         fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         try:
             st = os.fstat(fd)
             if not stat.S_ISREG(st.st_mode) or not (0 < st.st_size <= max_bytes):
                 raise ValueError("Path is not a regular file within allowed size")
+            if st.st_ino and lst.st_ino and (lst.st_dev, lst.st_ino) != (st.st_dev, st.st_ino):
+                raise ValueError("File identity changed between lstat and open")
+            if cls._has_reparse_in_lineage(path):
+                raise ValueError("Reparse point detected in path lineage")
             if "b" in mode:
                 return os.fdopen(fd, mode)
             return os.fdopen(fd, mode, encoding=encoding)

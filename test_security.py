@@ -207,6 +207,30 @@ class TestSecurity(unittest.TestCase):
             self.assertFalse(os.path.exists(swapped_path))
             self.assertEqual([n for n in os.listdir(tmpdir) if n.startswith(".tmp_tts_")], [])
 
+    def test_open_regular_nofollow_blocks_reparse_and_inode_swap(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sample = os.path.join(tmpdir, "sample.txt")
+            with open(sample, "wb") as f:
+                f.write(b"ok")
+
+            # Fallback reparse attribute detection works even when os.path.isjunction is absent (Python <3.12)
+            fake_reparse = type("S", (), {"st_file_attributes": 0x400})()
+            with patch("generator.os.path.islink", return_value=False), patch(
+                "generator.os.path.isjunction", None, create=True
+            ), patch("generator.stat.FILE_ATTRIBUTE_REPARSE_POINT", 0x400, create=True), patch(
+                "generator.os.lstat", return_value=fake_reparse
+            ):
+                self.assertTrue(Generator._is_reparse_point(sample))
+
+            # Verify inode mismatch between lstat and fstat is rejected (guards Windows where O_NOFOLLOW is 0)
+            lst = os.stat_result((0o100644, 111, 222, 1, 0, 0, 2, 0, 0, 0))
+            fst = os.stat_result((0o100644, 999, 222, 1, 0, 0, 2, 0, 0, 0))
+            with patch.object(Generator, "_is_safe_regular_file", return_value=True), patch.object(
+                Generator, "_is_reparse_point", return_value=False
+            ), patch("generator.os.lstat", return_value=lst), patch("generator.os.fstat", return_value=fst):
+                with self.assertRaises(ValueError):
+                    Generator._open_regular_nofollow(sample, mode="rb")
+
 
 if __name__ == "__main__":
     unittest.main()

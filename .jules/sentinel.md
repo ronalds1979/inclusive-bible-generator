@@ -67,3 +67,8 @@
 - Added `_is_safe_regular_file` checks when loading locale JSON files in `load_locales()` and scanning assets in `main.py`, plus PNG/JPEG magic-byte validation (`_is_valid_raster_image`) for custom and built-in background images.
 - Enforced `verse[:5000]` and `reference[:100]` caps in `generate_texts()`, `generate_image()`, and `wrap_text()`.
 - Added `BIBLE_ID_PATTERN` validation and numeric bounds (`1 <= chapter <= 150`, `1 <= verse <= 200`) in `GetBibleAPI` (`getbible_api.py`), and checked `_has_reparse_in_lineage` in `open_output_folder()` (`main.py`).
+
+## 2026-11-23 - Windows O_NOFOLLOW No-Op & Python <3.12 Junction Detection
+**Vulnerability:** `Generator._open_regular_nofollow` relied on `getattr(os, "O_NOFOLLOW", 0)` (which evaluates to `0` on Windows) without verifying `(st_dev, st_ino)` identity or re-checking lineage after opening, and `_is_reparse_point` relied on `os.path.isjunction` (unavailable on Python 3.10–3.11).
+**Learning:** On Windows, `os.O_NOFOLLOW` is undefined, so `os.open(..., os.O_RDONLY | 0)` silently follows symlinks/junctions if a path is swapped after pre-checks, and `os.path.isjunction` fallback lambdas silently return `False` on Python <3.12.
+**Prevention:** Always combine `os.lstat` pre-checks with `os.fstat(fd)` `(st_dev, st_ino)` identity and lineage checks after `os.open`, and check `stat.FILE_ATTRIBUTE_REPARSE_POINT` via `os.lstat` when `os.path.isjunction` is unavailable.
