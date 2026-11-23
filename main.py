@@ -324,6 +324,7 @@ class App(ctk.CTk):
             command=self.auto_fix_contrast,
         )
         self.contrast_fix_btn.grid(row=0, column=1, padx=(0, 8), pady=6, sticky="e")
+        self._bind_hint(self.contrast_fix_btn, "contrast_fix_tooltip")
         self.contrast_warning_frame.grid_remove()
 
         # Font customization block
@@ -1179,8 +1180,10 @@ class App(ctk.CTk):
         else:
             self.bg_dim_var.set(0)
 
+        switched_to_white = False
         if self._is_low_contrast():
             # Medium/dark text (e.g., #FF0000) still fails 4.5:1 even at 0% dim; switch to white + darkened bg
+            switched_to_white = True
             self.font_color_var.set("#FFFFFF")
             lang = self.get_lang_key()
             self.font_color_dropdown.set(self.generator.get_locale_string(lang, "color_white"))
@@ -1194,6 +1197,14 @@ class App(ctk.CTk):
                 needed_dim = 45
             self.bg_dim_var.set(needed_dim)
         self.trigger_preview()
+        lang = self.get_lang_key()
+        dim_pct = int(self.bg_dim_var.get())
+        msg_key = "contrast_fixed_color_msg" if switched_to_white else "contrast_fixed_dim_msg"
+        self._showing_hover_hint = False
+        self.status_label.configure(
+            text=self.generator.get_locale_string(lang, msg_key, dim=dim_pct),
+            text_color="green",
+        )
 
     def trigger_preview(self, *args):
         # ⚡ Bolt: Skip redundant CustomTkinter .configure() redraws when slider values or button states are unchanged
