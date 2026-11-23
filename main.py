@@ -1023,6 +1023,14 @@ class App(ctk.CTk):
         self._set_hover_hint_text(hint_text)
 
     def _set_hover_hint_text(self, hint_text):
+        # ⚡ Bolt: Skip ~1ms CustomTkinter status_label.configure() redraw when identical hint is already displayed
+        # (e.g. during 60-120Hz <B1-Motion> preview drags inside the center-snap zone or ±400 clamp bounds).
+        if (
+            getattr(self, "_showing_hover_hint", False)
+            and getattr(self, "_active_hint_text", None) == hint_text
+            and self.status_label.cget("text") == hint_text
+        ):
+            return
         if not getattr(self, "_showing_hover_hint", False):
             self._saved_status = (
                 self.status_label.cget("text"),
