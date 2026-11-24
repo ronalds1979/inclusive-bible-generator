@@ -1270,7 +1270,7 @@ class App(ctk.CTk):
 
         generate_state = (
             "normal"
-            if verse and reference and not getattr(self, "_is_generating", False)
+            if verse and reference and self._is_valid_hex_color() and not getattr(self, "_is_generating", False)
             else "disabled"
         )
         if getattr(self, "_last_generate_state", None) != generate_state:
@@ -1300,6 +1300,9 @@ class App(ctk.CTk):
             return "#FFFFFF"
         return "#000000" if luminance > 0.179 else "#FFFFFF"
 
+    def _is_valid_hex_color(self):
+        return bool(self.HEX_COLOR_RE.match(self.font_color_var.get().strip()))
+
     def _sync_color_swatch(self):
         color = self.font_color_var.get().strip()
         if self.HEX_COLOR_RE.match(color):
@@ -1309,8 +1312,19 @@ class App(ctk.CTk):
                 hover_color=color,
                 text_color=self._contrast_text_color(color)
             )
+            if hasattr(self, "status_label") and getattr(self, "_showing_hex_error", False):
+                self._showing_hex_error = False
+                self.status_label.configure(text="", text_color="gray")
         else:
             self.font_color_entry.configure(border_color="red")
+            if hasattr(self, "status_label"):
+                self._showing_hex_error = True
+                self._showing_hover_hint = False
+                lang = self.get_lang_key()
+                self.status_label.configure(
+                    text=self.generator.get_locale_string(lang, "invalid_hex_color_msg"),
+                    text_color="red",
+                )
 
     def _on_custom_color_typed(self, *args):
         self._sync_color_swatch()
@@ -1348,6 +1362,7 @@ class App(ctk.CTk):
             self.font_color_var.set(hex_color)
             self.font_color_entry.grid_remove()
             self.color_picker_btn.grid_remove()
+            self._sync_color_swatch()
             self.trigger_preview()
 
     def clear_custom_image(self, choice):
@@ -1492,7 +1507,7 @@ class App(ctk.CTk):
             return
 
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path, background_dim = self.get_current_params()
-        if not verse or not reference:
+        if not verse or not reference or not self._is_valid_hex_color():
             return
 
         lang = self.get_lang_key()

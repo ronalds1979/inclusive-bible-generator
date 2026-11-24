@@ -50,3 +50,7 @@
 ## 2026-11-20 - Empty-State Parity and Immediate Language Sync for Output Textbox
 **Learning:** Leaving `output_textbox` blank when inputs are empty or cleared creates an unexplained empty box next to disabled Copy buttons, and switching UI language left `output_textbox` stale until the next debounced preview.
 **Action:** Show a muted localized `output_empty_state` message in `output_textbox` whenever verse or reference is empty, and reset/sync `_sync_live_output_texts` directly inside `update_ui_texts`.
+
+## 2026-11-24 - Live Hex Color Validation & Init-Order Guard in CustomTkinter
+**Learning:** `_sync_color_swatch()` is invoked during `__init__` before `status_label` is constructed, so updating status-bar validation from color sync helpers requires guarding `hasattr(self, "status_label")`. Leaving `generate_btn` enabled on invalid custom hex input also allowed silent fallback exports without explaining the `#RGB`/`#RRGGBB` format.
+**Action:** Guard `status_label` updates with `hasattr`, surface a localized hex-format error message while invalid (and clear it when valid or switching back to presets), and include `_is_valid_hex_color()` in `generate_btn` readiness checks.

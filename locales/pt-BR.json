@@ -81,5 +81,6 @@
   "output_empty_state": "O Alt-Text e a Legenda aparecerão aqui automaticamente assim que você informar um versículo e uma referência.",
   "contrast_fix_tooltip": "Ajustar automaticamente o escurecimento do fundo e a cor do texto para contraste WCAG AA (4.5:1)",
   "contrast_fixed_dim_msg": "✓ Escurecimento do fundo ajustado para {dim}% para leitura WCAG AA.",
-  "contrast_fixed_color_msg": "✓ Texto alterado para branco e escurecimento do fundo para {dim}% para leitura WCAG AA."
+  "contrast_fixed_color_msg": "✓ Texto alterado para branco e escurecimento do fundo para {dim}% para leitura WCAG AA.",
+  "invalid_hex_color_msg": "Cor hexadecimal inválida. Use #RGB ou #RRGGBB (ex: #FFFFFF)."
 }
