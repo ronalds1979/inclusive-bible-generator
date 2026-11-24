@@ -75,14 +75,22 @@ class Generator:
             curr = parent
         return False
 
+    @staticmethod
+    def _has_unsafe_path_syntax(path):
+        """Reject null bytes, Win32/NT device namespaces, NTFS ADS colons, and reserved device names."""
+        if not path or not isinstance(path, str) or "\x00" in path:
+            return True
+        if path.startswith(("\\\\.\\", "\\\\?\\", "//./", "//?/", "\\??\\")):
+            return True
+        filename = os.path.basename(path.rstrip("\\/"))
+        if not filename or ":" in filename:
+            return True
+        stem = filename.split(".")[0].rstrip(" .").upper()
+        return not stem or stem in _WINDOWS_DEVICE_NAMES
+
     @classmethod
     def _is_safe_regular_file(cls, path, max_bytes=20 * 1024 * 1024):
-        if not path or not isinstance(path, str):
-            return False
-        if path.startswith("\\\\.\\") or path.startswith("\\\\?\\"):
-            return False
-        base = os.path.splitext(os.path.basename(path))[0].upper()
-        if not base or base in _WINDOWS_DEVICE_NAMES:
+        if cls._has_unsafe_path_syntax(path):
             return False
         if cls._has_reparse_in_lineage(path):
             return False
@@ -132,14 +140,8 @@ class Generator:
 
     @classmethod
     def _validate_safe_output_path(cls, output_path):
-        if not output_path or not isinstance(output_path, str):
-            raise ValueError("Invalid output path")
-        if output_path.startswith("\\\\.\\") or output_path.startswith("\\\\?\\"):
-            raise ValueError("Device paths are not permitted")
-        filename = os.path.basename(output_path)
-        base = os.path.splitext(filename)[0].upper()
-        if not filename or not base or base in _WINDOWS_DEVICE_NAMES:
-            raise ValueError("Reserved or invalid output filename")
+        if cls._has_unsafe_path_syntax(output_path):
+            raise ValueError("Reserved, device, or invalid output path")
         if cls._has_reparse_in_lineage(output_path):
             raise ValueError("Refusing to write through symlink or junction")
 

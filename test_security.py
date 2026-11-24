@@ -51,8 +51,12 @@ class TestSecurity(unittest.TestCase):
     def test_is_safe_regular_file_rejects_device_names_and_symlinks(self):
         self.assertFalse(Generator._is_safe_regular_file("CON"))
         self.assertFalse(Generator._is_safe_regular_file("NUL.png"))
+        self.assertFalse(Generator._is_safe_regular_file("CON .png"))
+        self.assertFalse(Generator._is_safe_regular_file("CON.tar.png"))
+        self.assertFalse(Generator._is_safe_regular_file("verse.png:ads"))
         self.assertFalse(Generator._is_safe_regular_file(r"\\.\C:\file.png"))
         self.assertFalse(Generator._is_safe_regular_file(r"\\?\C:\file.png"))
+        self.assertFalse(Generator._is_safe_regular_file("//./pipe/test.png"))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             empty_file = os.path.join(tmpdir, "empty.png")
