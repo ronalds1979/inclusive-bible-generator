@@ -93,6 +93,24 @@ class TestSecurity(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.generator.save_image_atomic(img, out_path)
 
+    def test_save_image_atomic_uses_fdopen_and_revalidates_before_replace(self):
+        img = Image.new("RGB", (32, 32), color=(10, 20, 30))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "fdopen_verse.png")
+            with patch("generator.os.fdopen", wraps=os.fdopen) as mock_fdopen:
+                self.generator.save_image_atomic(img, out_path)
+                self.assertTrue(mock_fdopen.called)
+            with open(out_path, "rb") as f:
+                self.assertEqual(f.read(4), b"\x89PNG")
+
+            # Simulate symlink/junction swap on output_path during PNG encoding
+            swapped_path = os.path.join(tmpdir, "swapped.png")
+            with patch.object(Generator, "_has_reparse_in_lineage", side_effect=[False, True]):
+                with self.assertRaises(ValueError):
+                    self.generator.save_image_atomic(img, swapped_path)
+            self.assertFalse(os.path.exists(swapped_path))
+            self.assertEqual([n for n in os.listdir(tmpdir) if n.startswith(".tmp_img_")], [])
+
     def test_get_locale_string_blocks_format_attribute_traversal(self):
         rendered = self.generator.get_locale_string(
             "en",

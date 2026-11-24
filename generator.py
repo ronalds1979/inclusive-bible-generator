@@ -639,11 +639,20 @@ class Generator:
             prefix=".tmp_img_",
             suffix=".png",
         )
-        os.close(temp_fd)
         try:
-            pil_img.save(temp_path, "PNG", compress_level=compress_level)
+            # 🛡️ Sentinel: Keep the exclusive mkstemp descriptor open via os.fdopen (no close/reopen TOCTOU)
+            # and re-validate abs_output immediately before atomic replace
+            with os.fdopen(temp_fd, "wb") as img_file:
+                temp_fd = None
+                pil_img.save(img_file, "PNG", compress_level=compress_level)
+            self._validate_safe_output_path(abs_output)
             os.replace(temp_path, abs_output)
         finally:
+            if temp_fd is not None:
+                try:
+                    os.close(temp_fd)
+                except OSError:
+                    pass
             if os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
