@@ -72,3 +72,8 @@
 **Vulnerability:** `Generator._open_regular_nofollow` relied on `getattr(os, "O_NOFOLLOW", 0)` (which evaluates to `0` on Windows) without verifying `(st_dev, st_ino)` identity or re-checking lineage after opening, and `_is_reparse_point` relied on `os.path.isjunction` (unavailable on Python 3.10–3.11).
 **Learning:** On Windows, `os.O_NOFOLLOW` is undefined, so `os.open(..., os.O_RDONLY | 0)` silently follows symlinks/junctions if a path is swapped after pre-checks, and `os.path.isjunction` fallback lambdas silently return `False` on Python <3.12.
 **Prevention:** Always combine `os.lstat` pre-checks with `os.fstat(fd)` `(st_dev, st_ino)` identity and lineage checks after `os.open`, and check `stat.FILE_ATTRIBUTE_REPARSE_POINT` via `os.lstat` when `os.path.isjunction` is unavailable.
+
+## 2026-11-26 - requests.raise_for_status() Allows 3xx Redirect Responses
+**Vulnerability:** `GetBibleAPI._fetch_chapter` (`getbible_api.py`) set `allow_redirects=False` and relied solely on `response.raise_for_status()`, which only raises on 4xx/5xx status codes and would still read/parse a 3xx redirect body.
+**Learning:** In Python `requests`, disabling redirects (`allow_redirects=False`) leaves 3xx responses unraised by `raise_for_status()`.
+**Prevention:** Explicitly require `response.status_code == 200` alongside `raise_for_status()` whenever `allow_redirects=False` is used.

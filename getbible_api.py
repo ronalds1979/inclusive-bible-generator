@@ -25,6 +25,10 @@ class GetBibleAPI:
     }
 
     BIBLE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
+    # 🛡️ Sentinel: Strip C0/C1 control chars and Unicode Bidi override/isolate chars from upstream API verse text
+    _UNSAFE_TEXT_CHARS_PATTERN = re.compile(
+        r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200e\u200f\u202a-\u202e\u2066-\u2069]"
+    )
     REFERENCE_PATTERN = re.compile(
         r'^((?:\d\s+)?[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+(?:\s+[a-zA-ZáéíóúãõâêîôûçñÁÉÍÓÚÃÕÂÊÎÔÛÇÑ]+)*)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$'
     )
@@ -116,7 +120,10 @@ class GetBibleAPI:
             with GetBibleAPI._session.get(
                 url, timeout=10, stream=True, allow_redirects=False
             ) as response:
-                response.raise_for_status()
+                # 🛡️ Sentinel: Reject 3xx redirects explicitly because requests.raise_for_status() allows 3xx
+                if response.status_code != 200:
+                    response.raise_for_status()
+                    raise ValueError(f"Unexpected HTTP status {response.status_code}")
                 content_length = response.headers.get("Content-Length")
                 if content_length is not None and content_length.isdigit():
                     if int(content_length) > GetBibleAPI.MAX_RESPONSE_BYTES:
@@ -141,7 +148,7 @@ class GetBibleAPI:
         if not isinstance(raw_verses, list):
             return ()
         return tuple(
-            v.get("text", "")
+            GetBibleAPI._UNSAFE_TEXT_CHARS_PATTERN.sub("", v.get("text", ""))
             for v in raw_verses
             if isinstance(v, dict) and isinstance(v.get("text"), str)
         )

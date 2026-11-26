@@ -253,6 +253,39 @@ class TestSecurity(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     Generator._open_regular_nofollow(sample, mode="rb")
 
+    def test_has_unsafe_path_syntax_blocks_mixed_slash_device_namespaces(self):
+        for payload in [r"/\.\C:\file.png", r"\/?\C:\file.png", "/??/C:/file.png"]:
+            self.assertTrue(Generator._has_unsafe_path_syntax(payload), f"Expected rejection for {payload}")
+
+    def test_fetch_chapter_rejects_redirects_and_strips_bidi_control_chars(self):
+        class _FakeResponse:
+            def __init__(self, status_code, payload):
+                self.status_code = status_code
+                self.headers = {}
+                self._payload = payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def raise_for_status(self):
+                if self.status_code >= 400:
+                    raise RuntimeError(f"HTTP {self.status_code}")
+
+            def iter_content(self, chunk_size=8192):
+                yield self._payload
+
+        GetBibleAPI._fetch_chapter.cache_clear()
+        with patch.object(GetBibleAPI._session, "get", return_value=_FakeResponse(302, b"{}")):
+            self.assertIsNone(GetBibleAPI.get_passage("web", "John 3:16", lang="en"))
+
+        GetBibleAPI._fetch_chapter.cache_clear()
+        payload = b'{"verses": [{"text": "For God\\u202E so\\u0007 loved\\u2066"}]}'
+        with patch.object(GetBibleAPI._session, "get", return_value=_FakeResponse(200, payload)):
+            self.assertEqual(GetBibleAPI.get_passage("web", "John 3:1", lang="en"), "For God so loved")
+
 
 if __name__ == "__main__":
     unittest.main()

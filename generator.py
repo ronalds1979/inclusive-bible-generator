@@ -80,7 +80,9 @@ class Generator:
         """Reject null bytes, Win32/NT device namespaces, NTFS ADS colons, and reserved device names."""
         if not path or not isinstance(path, str) or "\x00" in path:
             return True
-        if path.startswith(("\\\\.\\", "\\\\?\\", "//./", "//?/", "\\??\\")):
+        # 🛡️ Sentinel: Normalize slashes so mixed-slash Win32/NT device prefixes (e.g. /\.\ or \/??\) cannot bypass checks
+        normalized = path.replace("/", "\\")
+        if normalized.startswith(("\\\\.\\", "\\\\?\\", "\\??\\")):
             return True
         filename = os.path.basename(path.rstrip("\\/"))
         if not filename or ":" in filename:
