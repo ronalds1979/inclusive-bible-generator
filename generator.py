@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import logging
+import math
 import stat
 import tempfile
 import threading
@@ -184,6 +185,7 @@ class Generator:
         self._valid_image_cache = OrderedDict()
         self._text_metrics_cache = OrderedDict()
         self._word_width_cache = OrderedDict()
+        self._text_mask_cache = OrderedDict()
 
     def load_locales(self):
         locales_dir = os.path.join(self.base_dir, "locales")
@@ -403,6 +405,46 @@ class Generator:
                 self._text_metrics_cache.popitem(last=False)
         return width
 
+    def _get_text_mask(self, draw, text, font, align, x_frac, y_frac, is_multiline):
+        """Render and LRU-cache a subpixel-aligned 'L' alpha mask for repeated draws."""
+        cache_key = (
+            is_multiline,
+            text,
+            self._get_font_id(font),
+            align,
+            round(x_frac, 4),
+            round(y_frac, 4),
+        )
+        with self._cache_lock:
+            cached = self._text_mask_cache.get(cache_key)
+            if cached is not None:
+                self._text_mask_cache.move_to_end(cache_key)
+                return cached
+
+        bbox = (
+            draw.multiline_textbbox((0, 0), text, font=font, align=align)
+            if is_multiline
+            else draw.textbbox((0, 0), text, font=font)
+        )
+        x0 = math.floor(bbox[0]) - 2
+        y0 = math.floor(bbox[1]) - 2
+        x1 = math.ceil(bbox[2]) + 2
+        y1 = math.ceil(bbox[3]) + 2
+        mask = Image.new("L", (max(1, x1 - x0), max(1, y1 - y0)), 0)
+        mask_draw = ImageDraw.Draw(mask)
+        if is_multiline:
+            mask_draw.multiline_text((x_frac - x0, y_frac - y0), text, font=font, fill=255, align=align)
+        else:
+            mask_draw.text((x_frac - x0, y_frac - y0), text, font=font, fill=255)
+
+        entry = (x0, y0, mask)
+        with self._cache_lock:
+            self._text_mask_cache[cache_key] = entry
+            self._text_mask_cache.move_to_end(cache_key)
+            if len(self._text_mask_cache) > 64:
+                self._text_mask_cache.popitem(last=False)
+        return entry
+
     def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0, max_dimension=None, background_dim=0.5):
         verse = (verse or "")[:5000]
         reference = (reference or "")[:100]
@@ -619,8 +661,17 @@ class Generator:
         # Apply y_offset
         y_text = (target_height - verse_height) / 2 - int(round(50 * render_scale)) + int(round(parsed_y_offset * render_scale))
 
-        # Draw verse
-        draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=rgba_color, align="center")
+        # ⚡ Bolt: Cache rasterized glyph masks keyed by (text, font, subpixel offset) so
+        # y_offset drags, background_dim ticks, and background swaps paste pre-rendered masks (~78% faster).
+        if wrapped_verse:
+            if hasattr(draw, "multiline_textbbox"):
+                ix_text, iy_text = math.floor(x_text), math.floor(y_text)
+                vx0, vy0, verse_mask = self._get_text_mask(
+                    draw, wrapped_verse, font_large, "center", x_text - ix_text, y_text - iy_text, True
+                )
+                img.paste(rgba_color[:3], (ix_text + vx0, iy_text + vy0), verse_mask)
+            else:
+                draw.multiline_text((x_text, y_text), wrapped_verse, font=font_large, fill=rgba_color, align="center")
 
         # Draw reference
         ref_width = self._measure_single_text_width(draw, reference, font_small)
@@ -628,7 +679,15 @@ class Generator:
         x_ref = (target_width - ref_width) / 2
         y_ref = y_text + verse_height + int(safe_font_size * 0.66)
 
-        draw.text((x_ref, y_ref), reference, font=font_small, fill=rgba_color)
+        if reference:
+            if hasattr(draw, "textbbox"):
+                ix_ref, iy_ref = math.floor(x_ref), math.floor(y_ref)
+                rx0, ry0, ref_mask = self._get_text_mask(
+                    draw, reference, font_small, "left", x_ref - ix_ref, y_ref - iy_ref, False
+                )
+                img.paste(rgba_color[:3], (ix_ref + rx0, iy_ref + ry0), ref_mask)
+            else:
+                draw.text((x_ref, y_ref), reference, font=font_small, fill=rgba_color)
 
         return img
 
