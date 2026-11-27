@@ -81,9 +81,9 @@ class Generator:
         """Reject null bytes, Win32/NT device namespaces, NTFS ADS colons, and reserved device names."""
         if not path or not isinstance(path, str) or "\x00" in path:
             return True
-        # 🛡️ Sentinel: Normalize slashes so mixed-slash Win32/NT device prefixes (e.g. /\.\ or \/??\) cannot bypass checks
+        # 🛡️ Sentinel: Normalize slashes so UNC paths (\\host\share) and Win32/NT device prefixes (\\.\, \\?\, \??\) are blocked before filesystem calls
         normalized = path.replace("/", "\\")
-        if normalized.startswith(("\\\\.\\", "\\\\?\\", "\\??\\")):
+        if normalized.startswith(("\\\\", "\\??\\")):
             return True
         filename = os.path.basename(path.rstrip("\\/"))
         if not filename or ":" in filename:
@@ -337,11 +337,14 @@ class Generator:
         """Validate raster image path with mtime/size-keyed LRU caching to avoid repeated lineage walks."""
         if not path or not isinstance(path, str):
             return False, 0
+        # 🛡️ Sentinel: Reject unsafe syntax/UNC paths and reparse points before lstat to prevent SMB Net-NTLMv2 leaks
+        if self._has_unsafe_path_syntax(path) or self._has_reparse_in_lineage(path):
+            return False, 0
         try:
-            st = os.stat(path)
+            st = os.lstat(path)
         except OSError:
             return False, 0
-        if not (0 < st.st_size <= max_bytes):
+        if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode) or not (0 < st.st_size <= max_bytes):
             return False, 0
 
         cache_key = (path, st.st_mtime_ns, st.st_size)

@@ -286,6 +286,22 @@ class TestSecurity(unittest.TestCase):
         with patch.object(GetBibleAPI._session, "get", return_value=_FakeResponse(200, payload)):
             self.assertEqual(GetBibleAPI.get_passage("web", "John 3:1", lang="en"), "For God so loved")
 
+    def test_unc_paths_blocked_before_stat_or_lstat(self):
+        unc_paths = [
+            r"\\attacker.example\share\bg.png",
+            "//attacker.example/share/bg.png",
+            r"\/attacker.example\share\bg.png",
+        ]
+        with patch("generator.os.stat", side_effect=AssertionError("os.stat should not be called on UNC paths")), patch(
+            "generator.os.lstat", side_effect=AssertionError("os.lstat should not be called on UNC paths")
+        ), patch("generator.os.path.lexists", side_effect=AssertionError("lexists should not be called on UNC paths")):
+            for unc in unc_paths:
+                self.assertTrue(Generator._has_unsafe_path_syntax(unc))
+                self.assertFalse(Generator._is_safe_regular_file(unc))
+                self.assertEqual(self.generator._resolve_valid_image(unc), (False, 0))
+                with self.assertRaises(ValueError):
+                    self.generator._validate_safe_output_path(unc)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -77,3 +77,8 @@
 **Vulnerability:** `GetBibleAPI._fetch_chapter` (`getbible_api.py`) set `allow_redirects=False` and relied solely on `response.raise_for_status()`, which only raises on 4xx/5xx status codes and would still read/parse a 3xx redirect body.
 **Learning:** In Python `requests`, disabling redirects (`allow_redirects=False`) leaves 3xx responses unraised by `raise_for_status()`.
 **Prevention:** Explicitly require `response.status_code == 200` alongside `raise_for_status()` whenever `allow_redirects=False` is used.
+
+## 2026-11-27 - UNC SMB Net-NTLMv2 Leak & Pre-Validation os.stat()
+**Vulnerability:** `Generator._has_unsafe_path_syntax` (`generator.py`) blocked `\\.\`, `\\?\`, and `\??\` device prefixes but allowed UNC network paths (`\\host\share`, `//host/share`), and `_resolve_valid_image()` called `os.stat(path)` before path syntax or reparse validation.
+**Learning:** On Windows, calling `os.stat()`, `os.lstat()`, or `os.path.lexists()` on a UNC path triggers an outbound SMB connection that leaks the user's Net-NTLMv2 hash even if subsequent checks reject the file.
+**Prevention:** Reject all `\\` (UNC/device) and `\??\` prefixes in `_has_unsafe_path_syntax()` and always run syntax and reparse checks before `os.lstat()` (never calling `os.stat()` on unvalidated paths).
