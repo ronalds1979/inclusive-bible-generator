@@ -54,3 +54,7 @@
 ## 2026-11-24 - Live Hex Color Validation & Init-Order Guard in CustomTkinter
 **Learning:** `_sync_color_swatch()` is invoked during `__init__` before `status_label` is constructed, so updating status-bar validation from color sync helpers requires guarding `hasattr(self, "status_label")`. Leaving `generate_btn` enabled on invalid custom hex input also allowed silent fallback exports without explaining the `#RGB`/`#RRGGBB` format.
 **Action:** Guard `status_label` updates with `hasattr`, surface a localized hex-format error message while invalid (and clear it when valid or switching back to presets), and include `_is_valid_hex_color()` in `generate_btn` readiness checks.
+
+## 2026-11-27 - CTkTextbox Validation Borders & Guarding Silent Text Truncation
+**Learning:** Unlike `CTkEntry`, CustomTkinter's `CTkTextbox` defaults to `border_width=0` in the theme, so setting `border_color="red"` alone produces no visible error border when input exceeds the 5,000-character limit. Leaving `generate_btn` enabled above 5,000 characters also silently truncated verses on export.
+**Action:** Explicitly toggle `border_width=2` alongside `border_color="red"` on `CTkTextbox` during invalid states (restoring `border_width=0` and the theme border when valid), surface a localized limit error in `status_label`, and disable `generate_btn` while over the character limit.

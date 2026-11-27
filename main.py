@@ -211,7 +211,7 @@ class App(ctk.CTk):
             command=self.clear_verse_inputs,
         )
         self.clear_inputs_btn.grid(row=0, column=1, sticky="e")
-        self._bind_hint(self.clear_inputs_btn, "clear_inputs_tooltip")
+        self._bind_hint(self.clear_inputs_btn, "clear_inputs_tooltip", "Ctrl+Shift+X")
 
         self.verse_input = ctk.CTkTextbox(self.left_frame, height=80)
         self.verse_input.grid(row=6, column=0, columnspan=2, pady=(0, 10), sticky="ew")
@@ -1248,11 +1248,32 @@ class App(ctk.CTk):
         reference = self.reference_input.get().strip()
 
         verse_base_label = self.generator.get_locale_string(lang, "verse_label")
+        verse_too_long = len(verse) > 5000
         verse_label_text = f"{verse_base_label} ({len(verse)}/5000)" if verse else verse_base_label
-        verse_label_color = "red" if len(verse) > 5000 else ("gray10", "gray90")
+        verse_label_color = "red" if verse_too_long else ("gray10", "gray90")
         if getattr(self, "_last_verse_label_state", None) != (verse_label_text, verse_label_color):
             self._last_verse_label_state = (verse_label_text, verse_label_color)
             self.verse_label.configure(text=verse_label_text, text_color=verse_label_color)
+
+        if getattr(self, "_last_verse_limit_error", False) != verse_too_long:
+            self._last_verse_limit_error = verse_too_long
+            if verse_too_long:
+                self.verse_input.configure(border_width=2, border_color="red")
+                if hasattr(self, "status_label"):
+                    self._showing_verse_limit_error = True
+                    self._showing_hover_hint = False
+                    self.status_label.configure(
+                        text=self.generator.get_locale_string(lang, "verse_limit_exceeded_msg"),
+                        text_color="red",
+                    )
+            else:
+                self.verse_input.configure(
+                    border_width=0,
+                    border_color=ctk.ThemeManager.theme["CTkTextbox"]["border_color"],
+                )
+                if hasattr(self, "status_label") and getattr(self, "_showing_verse_limit_error", False):
+                    self._showing_verse_limit_error = False
+                    self.status_label.configure(text="", text_color="gray")
 
         clear_state = "normal" if (verse or reference) else "disabled"
         if getattr(self, "_last_clear_state", None) != clear_state:
@@ -1270,7 +1291,7 @@ class App(ctk.CTk):
 
         generate_state = (
             "normal"
-            if verse and reference and self._is_valid_hex_color() and not getattr(self, "_is_generating", False)
+            if verse and reference and not verse_too_long and self._is_valid_hex_color() and not getattr(self, "_is_generating", False)
             else "disabled"
         )
         if getattr(self, "_last_generate_state", None) != generate_state:
@@ -1507,7 +1528,8 @@ class App(ctk.CTk):
             return
 
         verse, reference, background, font_type, font_color, font_size, y_offset, aspect_ratio, custom_image_path, background_dim = self.get_current_params()
-        if not verse or not reference or not self._is_valid_hex_color():
+        raw_verse_len = len(self.verse_input.get("1.0", "end-1c").strip())
+        if not verse or not reference or raw_verse_len > 5000 or not self._is_valid_hex_color():
             return
 
         lang = self.get_lang_key()
