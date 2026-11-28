@@ -180,6 +180,7 @@ class Generator:
         os.makedirs(self.output_dir, exist_ok=True)
         self._cache_lock = threading.Lock()
         self._bg_cache = OrderedDict()
+        self._dimmed_bg_cache = OrderedDict()
         self._font_cache = OrderedDict()
         self._wrap_cache = OrderedDict()
         self._valid_image_cache = OrderedDict()
@@ -508,21 +509,35 @@ class Generator:
         # ⚡ Bolt: Cache the un-dimmed resized RGB base background (without dim_key) and derive
         # dimmed variants on demand via point(LUT). Prevents 17-step dim slider LRU thrashing
         # and eliminates disk I/O, decoding, cropping, and resizing on background_dim changes.
+        # Also keep a small separate _dimmed_bg_cache (capacity 8) so repeated renders at the
+        # active dim_key (e.g. y_offset drags, font/color/text edits) copy directly instead of
+        # re-running Pillow's Image.point(lut) on every frame.
         bg_cache_key = (bg_path, bg_mtime, target_width, target_height)
+        dimmed_cache_key = (bg_path, bg_mtime, target_width, target_height, dim_key)
+        img = None
         with self._cache_lock:
-            cached_bg = self._bg_cache.get(bg_cache_key)
-            if cached_bg is not None:
-                self._bg_cache.move_to_end(bg_cache_key)
-                img = (
-                    cached_bg.point(self._get_darken_lut(dim_key))
-                    if dim_key > 0.0
-                    else cached_bg.copy()
-                )
-            else:
-                img = None
+            if dim_key > 0.0:
+                cached_dimmed = self._dimmed_bg_cache.get(dimmed_cache_key)
+                if cached_dimmed is not None:
+                    self._dimmed_bg_cache.move_to_end(dimmed_cache_key)
+                    img = cached_dimmed.copy()
+            if img is None:
+                cached_bg = self._bg_cache.get(bg_cache_key)
+                if cached_bg is not None:
+                    self._bg_cache.move_to_end(bg_cache_key)
+                    if dim_key > 0.0:
+                        dimmed_img = cached_bg.point(self._get_darken_lut(dim_key))
+                        self._dimmed_bg_cache[dimmed_cache_key] = dimmed_img
+                        self._dimmed_bg_cache.move_to_end(dimmed_cache_key)
+                        if len(self._dimmed_bg_cache) > 8:
+                            self._dimmed_bg_cache.popitem(last=False)
+                        img = dimmed_img.copy()
+                    else:
+                        img = cached_bg.copy()
         if img is None:
             bg_loaded = False
             base_img = None
+            dimmed_img = None
             try:
                 # 🛡️ Sentinel: Open background via _open_regular_nofollow so O_NOFOLLOW, S_ISREG, and 20 MB descriptor size cap are enforced atomically
                 with self._open_regular_nofollow(bg_path, mode="rb") as f:
@@ -569,11 +584,11 @@ class Generator:
                         else:
                             img.load()
                             base_img = img
-                        img = (
-                            base_img.point(self._get_darken_lut(dim_key))
-                            if dim_key > 0.0
-                            else base_img.copy()
-                        )
+                        if dim_key > 0.0:
+                            dimmed_img = base_img.point(self._get_darken_lut(dim_key))
+                            img = dimmed_img.copy()
+                        else:
+                            img = base_img.copy()
                         bg_loaded = True
             except Exception:
                 img = Image.new('RGB', (target_width, target_height), color=(36, 54, 68))
@@ -585,6 +600,11 @@ class Generator:
                     self._bg_cache.move_to_end(bg_cache_key)
                     if len(self._bg_cache) > 16:
                         self._bg_cache.popitem(last=False)
+                    if dimmed_img is not None:
+                        self._dimmed_bg_cache[dimmed_cache_key] = dimmed_img
+                        self._dimmed_bg_cache.move_to_end(dimmed_cache_key)
+                        if len(self._dimmed_bg_cache) > 8:
+                            self._dimmed_bg_cache.popitem(last=False)
 
         draw = ImageDraw.Draw(img)
 
