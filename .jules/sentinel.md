@@ -82,3 +82,9 @@
 **Vulnerability:** `Generator._has_unsafe_path_syntax` (`generator.py`) blocked `\\.\`, `\\?\`, and `\??\` device prefixes but allowed UNC network paths (`\\host\share`, `//host/share`), and `_resolve_valid_image()` called `os.stat(path)` before path syntax or reparse validation.
 **Learning:** On Windows, calling `os.stat()`, `os.lstat()`, or `os.path.lexists()` on a UNC path triggers an outbound SMB connection that leaks the user's Net-NTLMv2 hash even if subsequent checks reject the file.
 **Prevention:** Reject all `\\` (UNC/device) and `\??\` prefixes in `_has_unsafe_path_syntax()` and always run syntax and reparse checks before `os.lstat()` (never calling `os.stat()` on unvalidated paths).
+
+
+## 2026-11-28 - Control & Bidi Character Sanitization Gap on User-Supplied Text
+**Vulnerability:** `GetBibleAPI` stripped C0/C1 control characters and Unicode Bidi overrides/isolates from upstream API verse text, but `Generator` (`generate_texts`, `generate_audio`, `generate_image`, `wrap_text`) accepted unsanitized user/pasted inputs, and `generate_image` called `os.path.getmtime()` on the fallback `default.png` path before `_resolve_valid_image()`.
+**Learning:** Sanitizing only remote API payloads leaves pasted/manual UI inputs vulnerable to Bidi text spoofing in generated cards/captions and illegal XML 1.0 control characters in `edge-tts` SSML synthesis.
+**Prevention:** Enforce `Generator.sanitize_text()` at the `Generator` entrypoints (`generate_texts`, `generate_audio`, `generate_image`, `wrap_text`) and validate fallback asset paths through `_resolve_valid_image()`.

@@ -46,6 +46,16 @@ class Generator:
     SSML_MAP = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
     # ⚡ Bolt: Precompute translation table to strip angle brackets without per-call regex overhead
     ANGLE_BRACKET_STRIP_MAP = str.maketrans("", "", "<>")
+    # 🛡️ Sentinel: Strip C0/C1 control chars (preserving \t, \n, \r) and Unicode Bidi overrides/isolates from user/external text
+    UNSAFE_TEXT_CHARS_PATTERN = re.compile(
+        r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200e\u200f\u202a-\u202e\u2066-\u2069]"
+    )
+
+    @classmethod
+    def sanitize_text(cls, text, max_len=None):
+        """Strip unsafe control/Bidi characters and optionally cap length."""
+        cleaned = cls.UNSAFE_TEXT_CHARS_PATTERN.sub("", str(text) if text is not None else "")
+        return cleaned[:max_len] if max_len is not None else cleaned
 
     @staticmethod
     def _is_reparse_point(path):
@@ -227,16 +237,16 @@ class Generator:
         )
 
     def generate_texts(self, lang, verse, reference):
-        verse = (verse or "")[:5000]
-        reference = (reference or "")[:100]
+        verse = self.sanitize_text(verse, max_len=5000)
+        reference = self.sanitize_text(reference, max_len=100)
         description = self.get_locale_string(lang, "default_description")
         alt_text = self.get_locale_string(lang, "alt_text_template", description=description, verse=verse, reference=reference)
         caption = self.get_locale_string(lang, "caption_template", verse=verse, reference=reference)
         return alt_text, caption
 
     def generate_audio(self, lang, verse, reference, gender="Female", custom_output_path=None):
-        verse = (verse or "")[:5000]
-        reference = (reference or "")[:100]
+        verse = self.sanitize_text(verse, max_len=5000)
+        reference = self.sanitize_text(reference, max_len=100)
 
         voices = {
             "pt-BR": {"Male": "pt-BR-AntonioNeural", "Female": "pt-BR-FranciscaNeural"},
@@ -450,8 +460,8 @@ class Generator:
         return entry
 
     def generate_image(self, lang, verse, reference, background_filename="default.png", custom_image_path=None, aspect_ratio="1:1", font_type="Roboto-Regular.ttf", font_color="#FFFFFF", font_size=60, y_offset=0, max_dimension=None, background_dim=0.5):
-        verse = (verse or "")[:5000]
-        reference = (reference or "")[:100]
+        verse = self.sanitize_text(verse, max_len=5000)
+        reference = self.sanitize_text(reference, max_len=100)
         lang_code = self.LANG_MAP.get(lang, "pt-BR")
         if lang_code == "pt-BR":
             lang_code = "pt"
@@ -500,11 +510,10 @@ class Generator:
                 bg_path = candidate_path
                 bg_mtime = mtime
             else:
-                bg_path = os.path.join(self.backgrounds_dir, "default.png")
-                try:
-                    bg_mtime = int(os.path.getmtime(bg_path))
-                except OSError:
-                    bg_mtime = 0
+                default_bg = os.path.join(self.backgrounds_dir, "default.png")
+                is_default_valid, default_mtime = self._resolve_valid_image(default_bg)
+                bg_path = default_bg
+                bg_mtime = default_mtime if is_default_valid else 0
 
         # ⚡ Bolt: Cache the un-dimmed resized RGB base background (without dim_key) and derive
         # dimmed variants on demand via point(LUT). Prevents 17-step dim slider LRU thrashing
@@ -747,7 +756,7 @@ class Generator:
         return output_path
 
     def wrap_text(self, text, font, max_width, draw):
-        text = (text or "")[:5000]
+        text = self.sanitize_text(text, max_len=5000)
         # ⚡ Bolt: Key by stable (font.path, font.size) with LRU eviction instead of volatile id(font)
         font_id = self._get_font_id(font)
         cache_key = (text, font_id, max_width)

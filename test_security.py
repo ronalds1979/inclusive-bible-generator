@@ -302,6 +302,42 @@ class TestSecurity(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.generator._validate_safe_output_path(unc)
 
+    def test_generator_strips_control_and_bidi_chars_from_user_inputs(self):
+        poisoned_verse = "For God\x00\x07\u202e so\u2066 loved\nthe world"
+        poisoned_ref = "John\u202e 3:16\x1b"
+        alt_text, caption = self.generator.generate_texts("English", poisoned_verse, poisoned_ref)
+        for output in (alt_text, caption):
+            self.assertNotIn("\x00", output)
+            self.assertNotIn("\x07", output)
+            self.assertNotIn("\x1b", output)
+            self.assertNotIn("\u202e", output)
+            self.assertNotIn("\u2066", output)
+            self.assertIn("For God so loved\nthe world", output)
+            self.assertIn("John 3:16", output)
+
+        captured = []
+
+        class _FakeCommunicate:
+            def __init__(self, text, *_args, **_kwargs):
+                captured.append(text)
+
+            async def stream(self):
+                yield {"type": "audio", "data": b"ID3mock"}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "clean.mp3")
+            with patch("generator.edge_tts.Communicate", _FakeCommunicate):
+                self.generator.generate_audio(
+                    "English",
+                    poisoned_verse,
+                    poisoned_ref,
+                    custom_output_path=out_path,
+                )
+        self.assertEqual(len(captured), 1)
+        self.assertNotIn("\x00", captured[0])
+        self.assertNotIn("\u202e", captured[0])
+        self.assertIn("John, chapter 3, verse 16.", captured[0])
+
 
 if __name__ == "__main__":
     unittest.main()
