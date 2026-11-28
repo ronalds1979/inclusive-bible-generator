@@ -95,11 +95,20 @@ class Generator:
         normalized = path.replace("/", "\\")
         if normalized.startswith(("\\\\", "\\??\\")):
             return True
-        filename = os.path.basename(path.rstrip("\\/"))
-        if not filename or ":" in filename:
+        # 🛡️ Sentinel: Check every path segment (not just basename) so intermediate Windows device names (e.g. CON\file.png) and directory NTFS ADS colons (dir:ads\file.png) are blocked
+        drive, tail = os.path.splitdrive(normalized)
+        if drive and (len(drive) != 2 or not drive[0].isalpha() or drive[1] != ":"):
             return True
-        stem = filename.split(".")[0].rstrip(" .").upper()
-        return not stem or stem in _WINDOWS_DEVICE_NAMES
+        segments = [seg for seg in tail.rstrip("\\").split("\\") if seg]
+        if not segments:
+            return True
+        for seg in segments:
+            if ":" in seg:
+                return True
+            stem = seg.split(".")[0].rstrip(" .").upper()
+            if not stem or stem in _WINDOWS_DEVICE_NAMES:
+                return True
+        return False
 
     @classmethod
     def _is_safe_regular_file(cls, path, max_bytes=20 * 1024 * 1024):

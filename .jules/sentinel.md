@@ -88,3 +88,8 @@
 **Vulnerability:** `GetBibleAPI` stripped C0/C1 control characters and Unicode Bidi overrides/isolates from upstream API verse text, but `Generator` (`generate_texts`, `generate_audio`, `generate_image`, `wrap_text`) accepted unsanitized user/pasted inputs, and `generate_image` called `os.path.getmtime()` on the fallback `default.png` path before `_resolve_valid_image()`.
 **Learning:** Sanitizing only remote API payloads leaves pasted/manual UI inputs vulnerable to Bidi text spoofing in generated cards/captions and illegal XML 1.0 control characters in `edge-tts` SSML synthesis.
 **Prevention:** Enforce `Generator.sanitize_text()` at the `Generator` entrypoints (`generate_texts`, `generate_audio`, `generate_image`, `wrap_text`) and validate fallback asset paths through `_resolve_valid_image()`.
+
+## 2026-11-28 - Intermediate Directory Bypass in Windows Device-Name & ADS Path Checks
+**Vulnerability:** `Generator._has_unsafe_path_syntax` only inspected `os.path.basename(path)` for NTFS Alternate Data Stream colons (`:`) and Windows reserved device names (`CON`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`), allowing paths like `C:\temp\CON\verse.png` or `C:\temp\dir:ads\verse.png`.
+**Learning:** Win32 path resolution treats reserved DOS device stems and NTFS ADS `:stream` suffixes in intermediate directory components as device handles or alternate streams even when the final filename is benign.
+**Prevention:** Split the drive letter with `os.path.splitdrive()` and validate every path segment in the remaining path against `:` and `_WINDOWS_DEVICE_NAMES`.

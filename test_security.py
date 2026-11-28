@@ -254,7 +254,15 @@ class TestSecurity(unittest.TestCase):
                     Generator._open_regular_nofollow(sample, mode="rb")
 
     def test_has_unsafe_path_syntax_blocks_mixed_slash_device_namespaces(self):
-        for payload in [r"/\.\C:\file.png", r"\/?\C:\file.png", "/??/C:/file.png"]:
+        for payload in [
+            r"/\.\C:\file.png",
+            r"\/?\C:\file.png",
+            "/??/C:/file.png",
+            r"C:\temp\CON\verse.png",
+            r"C:\temp\NUL.dir\verse.png",
+            r"C:\temp\folder:ads\verse.png",
+            "COM1/verse.png",
+        ]:
             self.assertTrue(Generator._has_unsafe_path_syntax(payload), f"Expected rejection for {payload}")
 
     def test_fetch_chapter_rejects_redirects_and_strips_bidi_control_chars(self):
