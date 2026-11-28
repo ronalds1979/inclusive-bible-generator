@@ -480,6 +480,7 @@ class App(ctk.CTk):
             state="disabled"
         )
         self.gender_dropdown.grid(row=1, column=1, padx=(5, 0), sticky="ew")
+        self.toggle_audio_options()
 
         # Bind text inputs to preview
         self.verse_input.bind("<KeyRelease>", self.trigger_preview)
@@ -515,7 +516,7 @@ class App(ctk.CTk):
         # Generate Button
         self.generate_btn = ctk.CTkButton(self.left_frame, text="Gerar Conteúdo", command=self.generate_content)
         self.generate_btn.grid(row=13, column=0, columnspan=2, pady=(10, 0), sticky="ew")
-        self._bind_hint(self.generate_btn, "generate_btn", "Ctrl+G")
+        self._bind_generate_hint()
 
         # Copy/Save Buttons Frame
         self.buttons_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
@@ -622,6 +623,20 @@ class App(ctk.CTk):
         widget.bind("<Leave>", clear)
         widget.bind("<FocusIn>", show)
         widget.bind("<FocusOut>", clear)
+
+    def _bind_generate_hint(self):
+        """Show contextual disabled guidance or Ctrl+G shortcut hint on Generate button."""
+        def show(_e):
+            if self.generate_btn.cget("state") == "disabled" and not getattr(self, "_is_generating", False):
+                self._show_hover_hint("generate_disabled_hint")
+            else:
+                self._show_shortcut_hint("generate_btn", "Ctrl+G")
+
+        clear = lambda _e: self._clear_hover_hint()
+        self.generate_btn.bind("<Enter>", show)
+        self.generate_btn.bind("<Leave>", clear)
+        self.generate_btn.bind("<FocusIn>", show)
+        self.generate_btn.bind("<FocusOut>", clear)
 
     def _bind_slider_keys(self, slider, var, step, min_val, max_val, on_change):
         """Allow keyboard arrow keys to adjust CTkSlider values."""
@@ -789,6 +804,7 @@ class App(ctk.CTk):
         self._last_verse_label_text = None
         self.verse_label.configure(text=self.generator.get_locale_string(lang, "verse_label"))
         self.reference_label.configure(text=self.generator.get_locale_string(lang, "reference_label"))
+        self.reference_input.configure(placeholder_text=self.generator.get_locale_string(lang, "reference_placeholder"))
         self.bible_version_label.configure(text=self.generator.get_locale_string(lang, "bible_version_label"))
         self.fetch_btn.configure(text=self.generator.get_locale_string(lang, "fetch_verse_btn"))
         self.book_label.configure(text=self.generator.get_locale_string(lang, "book_label"))
@@ -875,6 +891,7 @@ class App(ctk.CTk):
 
         self.audio_generate_checkbox.configure(text=self.generator.get_locale_string(lang, "audio_label"))
         self.gender_label.configure(text=self.generator.get_locale_string(lang, "gender_label"))
+        self.toggle_audio_options()
 
         gender_female = self.generator.get_locale_string(lang, "gender_female")
         gender_male = self.generator.get_locale_string(lang, "gender_male")

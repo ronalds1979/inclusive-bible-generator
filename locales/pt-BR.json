@@ -83,5 +83,7 @@
   "contrast_fixed_dim_msg": "✓ Escurecimento do fundo ajustado para {dim}% para leitura WCAG AA.",
   "contrast_fixed_color_msg": "✓ Texto alterado para branco e escurecimento do fundo para {dim}% para leitura WCAG AA.",
   "invalid_hex_color_msg": "Cor hexadecimal inválida. Use #RGB ou #RRGGBB (ex: #FFFFFF).",
-  "verse_limit_exceeded_msg": "O versículo excede o limite de 5.000 caracteres. Reduza o texto para gerar."
+  "verse_limit_exceeded_msg": "O versículo excede o limite de 5.000 caracteres. Reduza o texto para gerar.",
+  "reference_placeholder": "ex: Salmos 119:105",
+  "generate_disabled_hint": "Informe um versículo e referência (máx. 5.000 caracteres) com uma cor válida para gerar."
 }

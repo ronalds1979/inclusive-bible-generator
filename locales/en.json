@@ -83,5 +83,7 @@
   "contrast_fixed_dim_msg": "✓ Background Dim adjusted to {dim}% for WCAG AA readability.",
   "contrast_fixed_color_msg": "✓ Switched text to white and set Background Dim to {dim}% for WCAG AA readability.",
   "invalid_hex_color_msg": "Invalid hex color. Use #RGB or #RRGGBB (e.g., #FFFFFF).",
-  "verse_limit_exceeded_msg": "Verse exceeds the 5,000-character limit. Shorten the text to generate."
+  "verse_limit_exceeded_msg": "Verse exceeds the 5,000-character limit. Shorten the text to generate.",
+  "reference_placeholder": "e.g., Psalm 119:105",
+  "generate_disabled_hint": "Enter a verse and reference (max 5,000 chars) with a valid color to generate."
 }
